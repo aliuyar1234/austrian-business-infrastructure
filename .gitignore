@@ -1,0 +1,59 @@
+# Go binaries and build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+fo
+fo.exe
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendor directory (if not committing vendor)
+# vendor/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Logs
+*.log
+
+# Environment and secrets
+.env
+.env.*
+*.enc.bak
+
+# Claude local settings (user-specific)
+.claude/settings.local.json
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Build output
+dist/
+build/
+bin/
