@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 )
 
 // Router wraps http.ServeMux with additional functionality
@@ -163,6 +164,6 @@ func ValidationError(w http.ResponseWriter, details map[string]string) {
 
 // RateLimited sends a 429 response
 func RateLimited(w http.ResponseWriter, retryAfter int) {
-	w.Header().Set("Retry-After", string(rune(retryAfter)))
+	w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 	JSONError(w, http.StatusTooManyRequests, "Rate limit exceeded", ErrCodeRateLimited)
 }

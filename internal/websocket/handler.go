@@ -21,12 +21,14 @@ type Handler struct {
 	logger         *slog.Logger
 	jwtManager     *auth.JWTManager
 	allowedOrigins map[string]bool
+	devMode        bool
 }
 
 // HandlerConfig configures the WebSocket handler
 type HandlerConfig struct {
-	AllowedOrigins []string // Empty means allow all (dev only)
+	AllowedOrigins []string // Empty in production = reject all (secure default)
 	JWTManager     *auth.JWTManager
+	DevMode        bool // Only allow all origins if explicitly in dev mode
 }
 
 // NewHandler creates a new WebSocket handler
@@ -43,6 +45,7 @@ func NewHandler(hub *Hub, logger *slog.Logger, config *HandlerConfig) *Handler {
 
 	if config != nil {
 		h.jwtManager = config.JWTManager
+		h.devMode = config.DevMode
 		for _, origin := range config.AllowedOrigins {
 			h.allowedOrigins[origin] = true
 		}
@@ -58,16 +61,21 @@ func NewHandler(hub *Hub, logger *slog.Logger, config *HandlerConfig) *Handler {
 }
 
 // checkOrigin validates the request origin against allowed origins
+// Secure default: reject all origins if not configured (unless explicitly in dev mode)
 func (h *Handler) checkOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return true // Same-origin requests don't have Origin header
 	}
 
-	// If no origins configured, allow all (dev mode only - log warning)
+	// If no origins configured, only allow in dev mode (secure default)
 	if len(h.allowedOrigins) == 0 {
-		h.logger.Warn("WebSocket accepting all origins - configure AllowedOrigins for production")
-		return true
+		if h.devMode {
+			h.logger.Warn("WebSocket accepting all origins - development mode only")
+			return true
+		}
+		h.logger.Error("WebSocket rejecting connection - AllowedOrigins not configured", "origin", origin)
+		return false
 	}
 
 	// Check against allowlist

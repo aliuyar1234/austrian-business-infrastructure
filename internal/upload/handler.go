@@ -398,8 +398,16 @@ func (h *Handler) MarkProcessed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context (staff user)
-	userIDStr := r.Context().Value("user_id")
-	userID, _ := uuid.Parse(userIDStr.(string))
+	userIDStr, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		http.Error(w, "invalid user ID", http.StatusBadRequest)
+		return
+	}
 
 	uploadID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

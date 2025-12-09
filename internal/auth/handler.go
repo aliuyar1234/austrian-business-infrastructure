@@ -30,6 +30,7 @@ type Handler struct {
 	redis          *cache.Client
 	logger         *slog.Logger
 	cookieConfig   *CookieConfig
+	trustedProxies map[string]bool // Trusted proxy IPs/CIDRs for X-Forwarded-For
 }
 
 // NewHandler creates a new auth handler
@@ -166,7 +167,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		result.Owner.ID,
 		tokens.RefreshToken,
 		r.UserAgent(),
-		getClientIP(r),
+		h.getClientIP(r),
 	)
 
 	if err != nil {
@@ -263,7 +264,7 @@ type Login2FARequest struct {
 // Login handles POST /api/v1/auth/login
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	clientIP := getClientIP(r)
+	clientIP := h.getClientIP(r)
 
 	// Rate limiting (FR-106: 10/min per IP)
 	// Login uses fail-closed: reject requests when rate limiter backend unavailable
@@ -337,7 +338,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // Login2FA handles POST /api/v1/auth/login/2fa
 func (h *Handler) Login2FA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	clientIP := getClientIP(r)
+	clientIP := h.getClientIP(r)
 
 	var req Login2FARequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -588,28 +589,97 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// getClientIP extracts client IP from request
-func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxies)
+// getClientIP extracts client IP from request with trusted proxy validation
+// This prevents IP spoofing attacks (CWE-290) by only trusting X-Forwarded-For
+// from known proxy IPs (e.g., Caddy, Traefik, load balancers)
+func (h *Handler) getClientIP(r *http.Request) string {
+	// Extract remote IP (strip port if present)
+	remoteAddr := r.RemoteAddr
+	if idx := lastIndexByte(remoteAddr, ':'); idx != -1 {
+		// Check if this is IPv6 [::1]:port format
+		if remoteAddr[0] == '[' {
+			if bracketIdx := lastIndexByte(remoteAddr, ']'); bracketIdx != -1 {
+				remoteAddr = remoteAddr[1:bracketIdx]
+			}
+		} else {
+			remoteAddr = remoteAddr[:idx]
+		}
+	}
+
+	// Only trust forwarded headers if request comes from trusted proxy
+	// If no trusted proxies configured, always use RemoteAddr (secure default)
+	if len(h.trustedProxies) == 0 || !h.trustedProxies[remoteAddr] {
+		return remoteAddr
+	}
+
+	// Request is from trusted proxy - check X-Forwarded-For
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {
-		// Take first IP in list
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
+		// Parse X-Forwarded-For: client, proxy1, proxy2
+		// Get the rightmost non-trusted IP (real client)
+		ips := splitXFF(xff)
+		for i := len(ips) - 1; i >= 0; i-- {
+			ip := ips[i]
+			if !h.trustedProxies[ip] {
+				return ip
 			}
 		}
-		return xff
 	}
 
-	// Check X-Real-IP header
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
+	// Check X-Real-IP (set by some proxies like nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return trimSpace(xri)
 	}
 
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
+	return remoteAddr
+}
+
+// lastIndexByte returns the index of the last instance of c in s, or -1
+func lastIndexByte(s string, c byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+// splitXFF splits X-Forwarded-For header and trims whitespace
+func splitXFF(xff string) []string {
+	var result []string
+	start := 0
+	for i := 0; i <= len(xff); i++ {
+		if i == len(xff) || xff[i] == ',' {
+			ip := trimSpace(xff[start:i])
+			if ip != "" {
+				result = append(result, ip)
+			}
+			start = i + 1
+		}
+	}
+	return result
+}
+
+// trimSpace removes leading/trailing whitespace
+func trimSpace(s string) string {
+	start := 0
+	end := len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+		end--
+	}
+	return s[start:end]
+}
+
+// SetTrustedProxies configures which proxy IPs are trusted for X-Forwarded-For
+// Common values: "127.0.0.1", "::1", "10.0.0.0/8", Docker network IPs
+func (h *Handler) SetTrustedProxies(proxies []string) {
+	h.trustedProxies = make(map[string]bool)
+	for _, p := range proxies {
+		h.trustedProxies[p] = true
+	}
 }
 
 // ============== 2FA Challenge Token Helpers ==============

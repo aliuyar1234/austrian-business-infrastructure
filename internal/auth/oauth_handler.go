@@ -25,6 +25,7 @@ type OAuthHandler struct {
 	redis          *cache.Client
 	logger         *slog.Logger
 	appURL         string
+	trustedProxies map[string]bool
 }
 
 // NewOAuthHandler creates a new OAuth handler
@@ -196,7 +197,7 @@ func (h *OAuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		u.ID,
 		tokens.RefreshToken,
 		r.UserAgent(),
-		getClientIP(r),
+		h.getClientIP(r),
 	)
 
 	if err != nil {
@@ -274,6 +275,49 @@ func (h *OAuthHandler) findOrCreateOAuthUser(r *http.Request, info *OAuthUserInf
 func (h *OAuthHandler) redirectWithError(w http.ResponseWriter, r *http.Request, message string) {
 	redirectURL := h.appURL + "/auth/error?message=" + message
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+}
+
+// getClientIP extracts client IP from request with trusted proxy validation
+func (h *OAuthHandler) getClientIP(r *http.Request) string {
+	remoteAddr := r.RemoteAddr
+	if idx := lastIndexByte(remoteAddr, ':'); idx != -1 {
+		if remoteAddr[0] == '[' {
+			if bracketIdx := lastIndexByte(remoteAddr, ']'); bracketIdx != -1 {
+				remoteAddr = remoteAddr[1:bracketIdx]
+			}
+		} else {
+			remoteAddr = remoteAddr[:idx]
+		}
+	}
+
+	if len(h.trustedProxies) == 0 || !h.trustedProxies[remoteAddr] {
+		return remoteAddr
+	}
+
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		ips := splitXFF(xff)
+		for i := len(ips) - 1; i >= 0; i-- {
+			ip := ips[i]
+			if !h.trustedProxies[ip] {
+				return ip
+			}
+		}
+	}
+
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return trimSpace(xri)
+	}
+
+	return remoteAddr
+}
+
+// SetTrustedProxies configures which proxy IPs are trusted
+func (h *OAuthHandler) SetTrustedProxies(proxies []string) {
+	h.trustedProxies = make(map[string]bool)
+	for _, p := range proxies {
+		h.trustedProxies[p] = true
+	}
 }
 
 func generateOAuthState() (string, error) {

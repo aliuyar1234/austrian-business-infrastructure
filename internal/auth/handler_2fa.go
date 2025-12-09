@@ -135,7 +135,7 @@ func (h *Handler) Verify2FA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := api.GetUserID(ctx)
 	tenantID := api.GetTenantID(ctx)
-	clientIP := getClientIP(r)
+	clientIP := h.getClientIP(r)
 
 	if userID == "" {
 		api.JSONError(w, http.StatusUnauthorized, "Authentication required", api.ErrCodeUnauthorized)
@@ -263,7 +263,7 @@ func (h *Handler) Disable2FA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userID := api.GetUserID(ctx)
 	tenantID := api.GetTenantID(ctx)
-	clientIP := getClientIP(r)
+	clientIP := h.getClientIP(r)
 
 	if userID == "" {
 		api.JSONError(w, http.StatusUnauthorized, "Authentication required", api.ErrCodeUnauthorized)
@@ -357,7 +357,7 @@ func (h *Handler) Disable2FA(w http.ResponseWriter, r *http.Request) {
 // Login using a recovery code instead of TOTP
 func (h *Handler) LoginWithRecovery(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	clientIP := getClientIP(r)
+	clientIP := h.getClientIP(r)
 
 	var req RecoveryLoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
