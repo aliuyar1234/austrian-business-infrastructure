@@ -44,13 +44,28 @@ coverage.html
 .env.*
 *.enc.bak
 
-# Claude Code (internal development files)
+# ============================================
+# Internal Development Files (NOT for GitHub)
+# ============================================
+
+# Claude Code / AI assistant files
 .claude/
 CLAUDE.md
 
-# Specification files (internal docs)
+# Internal specifications and planning
 specs/
 .specify/
+
+# Internal documentation and roadmaps
+*-vision.md
+*-roadmap.md
+*-internal.md
+*-notes.md
+austrian-business-platform-*.md
+
+# Generated images / mockups
+Gemini_Generated_Image_*.png
+*.generated.png
 
 # Temporary files
 *.tmp

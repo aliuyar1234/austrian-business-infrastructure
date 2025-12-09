@@ -296,6 +296,88 @@ func (s *Server) RegisterTools() {
 		},
 		handleUVASubmit,
 	)
+
+	// ===== AI Document Intelligence Tools (011-ai-document-intelligence) =====
+
+	// Document classification tool
+	s.RegisterTool(
+		&MCPTool{
+			Name:        "fo-document-classify",
+			Description: "Classify an Austrian official document by type (Bescheid, Ersuchen, Mahnung, etc.)",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"text": map[string]interface{}{
+						"type":        "string",
+						"description": "The document text to classify",
+					},
+					"title": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional document title for better classification",
+					},
+				},
+				"required": []string{"text"},
+			},
+		},
+		handleDocumentClassify,
+	)
+
+	// Deadline extraction tool
+	s.RegisterTool(
+		&MCPTool{
+			Name:        "fo-deadline-extract",
+			Description: "Extract deadlines (Fristen) from an Austrian official document",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"text": map[string]interface{}{
+						"type":        "string",
+						"description": "The document text to extract deadlines from",
+					},
+				},
+				"required": []string{"text"},
+			},
+		},
+		handleDeadlineExtract,
+	)
+
+	// Amount extraction tool
+	s.RegisterTool(
+		&MCPTool{
+			Name:        "fo-amount-extract",
+			Description: "Extract monetary amounts (Beträge) from an Austrian official document",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"text": map[string]interface{}{
+						"type":        "string",
+						"description": "The document text to extract amounts from",
+					},
+				},
+				"required": []string{"text"},
+			},
+		},
+		handleAmountExtract,
+	)
+
+	// Document summarization tool
+	s.RegisterTool(
+		&MCPTool{
+			Name:        "fo-document-summarize",
+			Description: "Generate a plain-language summary of an Austrian official document",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"text": map[string]interface{}{
+						"type":        "string",
+						"description": "The document text to summarize",
+					},
+				},
+				"required": []string{"text"},
+			},
+		},
+		handleDocumentSummarize,
+	)
 }
 
 // RunStdio runs the MCP server using stdio transport

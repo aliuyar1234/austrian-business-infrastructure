@@ -1,171 +1,281 @@
-# Austrian Business Infrastructure CLI
+<div align="center">
 
-A Go CLI toolkit for Austrian government and business API integrations.
+# Austrian Business Infrastructure
 
-## Modules
+**Enterprise-grade Go toolkit for Austrian government and business API integrations**
+
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?style=flat&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7+-DC382D?style=flat&logo=redis&logoColor=white)](https://redis.io/)
+
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Security](#security) • [Contributing](#contributing)
+
+</div>
+
+---
+
+## Overview
+
+A production-ready platform for integrating with Austrian government services and business APIs. Built for tax advisors, accountants, and enterprises handling Austrian tax filings, employee registrations, and financial documents.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Austrian Business Infrastructure              │
+├─────────────────────────────────────────────────────────────────┤
+│  CLI Tool    │  REST API    │  Client Portal  │  MCP Server    │
+├─────────────────────────────────────────────────────────────────┤
+│  FinanzOnline  │  ELDA  │  Firmenbuch  │  E-Rechnung  │  SEPA  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Features
 
 | Module | Description |
 |--------|-------------|
-| **FinanzOnline** | Session management, databox access, UVA/ZM tax submission |
+| **FinanzOnline** | Session management, databox polling, UVA/ZM tax submissions |
 | **ELDA** | Employee registration/deregistration (Anmeldung/Abmeldung) |
-| **Firmenbuch** | Company registry search, extract, watchlist monitoring |
-| **E-Rechnung** | XRechnung/ZUGFeRD invoice generation (EN16931 compliant) |
+| **Firmenbuch** | Company registry search, extracts, watchlist monitoring |
+| **E-Rechnung** | XRechnung/ZUGFeRD invoice generation (EN16931) |
 | **SEPA** | pain.001/pain.008 generation, camt.053 parsing, IBAN/BIC validation |
 
-## Requirements
+### Platform Capabilities
 
-- Go 1.23+
-- FinanzOnline WebService credentials
-- ELDA credentials (for social insurance)
-- Firmenbuch API key (for company registry)
-
-## Build
-
-```bash
-go build -o fo.exe ./cmd/fo
-```
+- **Multi-tenant SaaS** — Isolated tenant data with row-level security
+- **CLI + API + Portal** — Multiple interfaces for different use cases
+- **MCP Integration** — AI-ready with Model Context Protocol server
+- **Enterprise Security** — ES256 JWT, httpOnly cookies, CSP, rate limiting
 
 ## Quick Start
 
-### Account Management
+### Prerequisites
+
+- Go 1.24+
+- PostgreSQL 15+
+- Redis 7+
+- Node.js 20+ (frontend only)
+
+### Installation
+
+```bash
+# Clone repository
+git clone https://github.com/your-org/austrian-business-infrastructure.git
+cd austrian-business-infrastructure
+
+# Build CLI
+go build -o fo ./cmd/fo
+
+# Build server
+go build -o server ./cmd/server
+```
+
+### CLI Usage
 
 ```bash
 # Add FinanzOnline account
-fo account add --name "Muster GmbH" --tid 123456789 --benid USER01
+./fo account add --name "Muster GmbH" --tid 123456789 --benid USER01
 
-# Add ELDA account
-fo account add --type elda --name "My Company" --elda-serial "123456" --bknr "1234567890"
+# Check databox
+./fo session login "Muster GmbH"
+./fo databox list "Muster GmbH"
 
-# List accounts
-fo account list
+# Submit UVA
+./fo uva submit --input uva.json --account "Muster GmbH"
+
+# ELDA employee registration
+./fo elda anmeldung --employee-file employee.json --account "My Company"
+
+# Firmenbuch search
+./fo fb search "Muster GmbH" --limit 10
+
+# SEPA payment file
+./fo sepa pain001 payments.csv --debtor-iban AT611904300234573201 -o payments.xml
 ```
 
-### FinanzOnline
+### Server Mode
 
 ```bash
-# Login and check databox
-fo session login "Muster GmbH"
-fo databox list "Muster GmbH"
+# Generate JWT keys
+openssl ecparam -name prime256v1 -genkey -noout -out jwt-private.pem
 
-# Submit UVA (VAT advance return)
-fo uva submit --input uva.json --account "Muster GmbH"
+# Configure environment
+export DATABASE_URL="postgres://user:pass@localhost/austrian_business"
+export REDIS_URL="redis://localhost:6379"
+export JWT_ECDSA_KEY_FILE="./jwt-private.pem"
 
-# Submit ZM (summary declaration)
-fo zm submit --input zm.json --account "Muster GmbH"
+# Start server
+./server
 ```
 
-### ELDA (Social Insurance)
+## Documentation
 
-```bash
-# Register employee
-fo elda anmeldung --employee-file employee.json --account "My Company"
+### API Endpoints
 
-# Deregister employee
-fo elda abmeldung --sv-nummer 1234010190 --end-date 2025-12-31 --account "My Company"
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/login` | Authenticate user |
+| `POST` | `/api/v1/auth/refresh` | Refresh access token |
+| `GET` | `/api/v1/auth/me` | Current user info |
+| `WS` | `/api/v1/ws` | Real-time updates |
+
+### CLI Commands
+
+```
+fo account     Manage FinanzOnline/ELDA accounts
+fo session     Session management
+fo databox     FinanzOnline databox operations
+fo uva         VAT advance return (Umsatzsteuervoranmeldung)
+fo zm          Summary declaration (Zusammenfassende Meldung)
+fo elda        Social insurance operations
+fo fb          Company registry (Firmenbuch)
+fo erechnung   E-invoice generation
+fo sepa        SEPA payment files
+fo mcp         MCP server for AI integration
+fo dashboard   Multi-service status overview
 ```
 
-### Firmenbuch (Company Registry)
+### MCP Server
 
-```bash
-# Search companies
-fo fb search "Muster GmbH" --limit 10
+For AI integration with Claude Desktop:
 
-# Get company details
-fo fb extract FN123456b --json
-
-# Watchlist
-fo fb watch add FN123456b
-fo fb watch list
-```
-
-### E-Rechnung (E-Invoice)
-
-```bash
-# Generate XRechnung
-fo erechnung create --input invoice.json --format xrechnung --output invoice.xml
-
-# Validate invoice
-fo erechnung validate invoice.xml
-```
-
-### SEPA
-
-```bash
-# Generate credit transfer (pain.001)
-fo sepa pain001 payments.csv --debtor-name "Payer GmbH" --debtor-iban AT611904300234573201 -o payments.xml
-
-# Parse bank statement (camt.053)
-fo sepa camt053 statement.xml --json
-
-# Validate IBAN
-fo sepa validate AT611904300234573201
-
-# BIC lookup
-fo sepa bic 19043
-```
-
-### Dashboard
-
-```bash
-# Check all accounts
-fo dashboard --all
-
-# Check specific services
-fo dashboard --services fo,elda
-```
-
-### MCP Server (AI Integration)
-
-```bash
-# Start MCP server
-fo mcp serve --stdio
-```
-
-Claude Desktop config (`claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "austrian-business": {
-      "command": "fo.exe",
+      "command": "./fo",
       "args": ["mcp", "serve", "--stdio"]
     }
   }
 }
 ```
 
-## Global Flags
+## Security
 
-| Flag | Description |
-|------|-------------|
-| `--config, -c` | Custom config directory |
-| `--json, -j` | Output in JSON format |
-| `--verbose, -v` | Enable debug logging |
+Built with enterprise security requirements in mind.
 
-## Testing
+### Authentication
 
-```bash
-go test ./...
-```
+| Feature | Implementation |
+|---------|---------------|
+| Token Signing | ES256 (ECDSA P-256) |
+| Access Tokens | 15-minute expiry, memory-only storage |
+| Refresh Tokens | httpOnly, Secure, SameSite=Strict cookies |
+| 2FA | TOTP with encrypted secret storage |
+| WebSocket | First-message authentication pattern |
+
+### Infrastructure
+
+- **Rate Limiting** — Per-IP and per-user limits, fail-closed for auth endpoints
+- **Token Revocation** — Redis-backed blacklist with user/tenant-level revocation
+- **Security Headers** — CSP, X-Frame-Options, HSTS
+- **Audit Logging** — Structured security event logging
+- **Secrets Management** — Provider abstraction (env, file, Vault-ready)
+
+### Data Protection
+
+- Row-level security for tenant isolation
+- AES-256-GCM encryption for credentials at rest
+- No PII in JWT claims
+- DSGVO/GDPR compliant data handling
 
 ## Project Structure
 
 ```
-cmd/fo/          # CLI entry point
+cmd/
+├── fo/                 # CLI application
+├── server/             # HTTP API server
+└── worker/             # Background job processor
+
 internal/
-  cli/           # Cobra commands
-  config/        # Configuration paths
-  elda/          # ELDA client & types
-  erechnung/     # E-invoice generation
-  fb/            # Firmenbuch client
-  fonws/         # FinanzOnline WebService
-  mcp/           # MCP server
-  sepa/          # SEPA payment files
-  store/         # Encrypted credential storage
-tests/
-  unit/          # Unit tests
-  integration/   # Integration tests
+├── api/                # HTTP middleware, routing
+├── auth/               # JWT, sessions, rate limiting
+├── audit/              # Security event logging
+├── crypto/             # Encryption, key management
+├── elda/               # ELDA client
+├── fonws/              # FinanzOnline WebService
+├── fb/                 # Firmenbuch client
+├── erechnung/          # E-invoice generation
+├── sepa/               # SEPA file handling
+├── mcp/                # MCP server
+└── tenant/             # Multi-tenant support
+
+frontend/               # SvelteKit admin dashboard
+portal/                 # SvelteKit client portal
 ```
+
+## Testing
+
+```bash
+# All tests
+go test ./...
+
+# Unit tests with coverage
+go test ./tests/unit/... -cover
+
+# Specific module
+go test ./tests/unit/... -run TestJWT -v
+```
+
+## Compliance
+
+| Standard | Status |
+|----------|--------|
+| DSGVO/GDPR | Data protection measures implemented |
+| EN16931 | E-invoice format compliance |
+| FinanzOnline API | Official WebService integration |
+| ELDA | Austrian social insurance reporting |
+| SEPA | ISO 20022 payment standards |
+
+## Requirements
+
+### Production
+
+| Component | Version |
+|-----------|---------|
+| Go | 1.24+ |
+| PostgreSQL | 15+ |
+| Redis | 7+ |
+
+### Credentials
+
+- FinanzOnline WebService credentials (TID, BENID, PIN)
+- ELDA certificate and credentials
+- Firmenbuch API key (optional)
+
+## Environment Variables
+
+```bash
+# Required
+DATABASE_URL=postgres://user:pass@host/db
+REDIS_URL=redis://localhost:6379
+JWT_ECDSA_KEY_FILE=/path/to/private.pem
+
+# Optional
+APP_ENV=production
+ALLOWED_ORIGINS=https://app.example.com
+LOG_LEVEL=info
+```
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting PRs.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/improvement`)
+3. Commit changes (`git commit -am 'Add feature'`)
+4. Push to branch (`git push origin feature/improvement`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**[Documentation](docs/)** • **[Issues](issues/)** • **[Discussions](discussions/)**
+
+</div>

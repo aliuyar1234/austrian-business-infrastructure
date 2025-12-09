@@ -285,3 +285,540 @@ func handleUVASubmit(params map[string]interface{}) (interface{}, error) {
 	// MCP tools cannot access sessions directly
 	return authError("No active session available. Use 'fo session login " + accountID + "' to authenticate, then use 'fo uva submit' to submit the UVA."), nil
 }
+
+// ===== AI Document Intelligence Tools (011-ai-document-intelligence) =====
+
+// handleDocumentClassify classifies document text into categories
+func handleDocumentClassify(params map[string]interface{}) (interface{}, error) {
+	text, ok := params["text"].(string)
+	if !ok || text == "" {
+		return nil, errors.New("missing required parameter: text")
+	}
+
+	title, _ := params["title"].(string)
+
+	// Use heuristic classification for MCP (AI client requires config)
+	result := classifyDocumentHeuristic(text, title)
+
+	return map[string]interface{}{
+		"document_type":    result.DocumentType,
+		"document_subtype": result.DocumentSubtype,
+		"confidence":       result.Confidence,
+		"urgency":          result.Urgency,
+		"requires_action":  result.RequiresAction,
+		"keywords":         result.Keywords,
+	}, nil
+}
+
+// handleDeadlineExtract extracts deadlines from document text
+func handleDeadlineExtract(params map[string]interface{}) (interface{}, error) {
+	text, ok := params["text"].(string)
+	if !ok || text == "" {
+		return nil, errors.New("missing required parameter: text")
+	}
+
+	deadlines := extractDeadlinesHeuristic(text)
+
+	return map[string]interface{}{
+		"deadlines": deadlines,
+		"count":     len(deadlines),
+	}, nil
+}
+
+// handleAmountExtract extracts monetary amounts from document text
+func handleAmountExtract(params map[string]interface{}) (interface{}, error) {
+	text, ok := params["text"].(string)
+	if !ok || text == "" {
+		return nil, errors.New("missing required parameter: text")
+	}
+
+	amounts := extractAmountsHeuristic(text)
+
+	return map[string]interface{}{
+		"amounts": amounts,
+		"count":   len(amounts),
+	}, nil
+}
+
+// handleDocumentSummarize generates a summary of document text
+func handleDocumentSummarize(params map[string]interface{}) (interface{}, error) {
+	text, ok := params["text"].(string)
+	if !ok || text == "" {
+		return nil, errors.New("missing required parameter: text")
+	}
+
+	// For MCP without AI, provide a basic summary
+	summary := generateBasicSummary(text)
+
+	return map[string]interface{}{
+		"summary":       summary.Text,
+		"word_count":    summary.WordCount,
+		"key_sentences": summary.KeySentences,
+	}, nil
+}
+
+// Helper structures and functions for heuristic analysis
+
+type classificationResult struct {
+	DocumentType    string   `json:"document_type"`
+	DocumentSubtype string   `json:"document_subtype"`
+	Confidence      float64  `json:"confidence"`
+	Urgency         string   `json:"urgency"`
+	RequiresAction  bool     `json:"requires_action"`
+	Keywords        []string `json:"keywords"`
+}
+
+func classifyDocumentHeuristic(text, title string) classificationResult {
+	result := classificationResult{
+		DocumentType:    "sonstige",
+		DocumentSubtype: "sonstige",
+		Confidence:      0.5,
+		Urgency:         "normal",
+		RequiresAction:  false,
+		Keywords:        []string{},
+	}
+
+	combined := text + " " + title
+	lower := toLower(combined)
+
+	// Check for document types by keywords
+	if containsAnyMCP(lower, []string{"ergänzungsersuchen", "ersuchen um ergänzung", "werden sie ersucht"}) {
+		result.DocumentType = "ersuchen"
+		result.RequiresAction = true
+		result.Urgency = "high"
+		result.Confidence = 0.8
+		result.Keywords = append(result.Keywords, "ersuchen")
+	} else if containsAnyMCP(lower, []string{"bescheid", "abgabenbescheid", "einkommensteuerbescheid", "umsatzsteuerbescheid"}) {
+		result.DocumentType = "bescheid"
+		result.Confidence = 0.7
+		result.Keywords = append(result.Keywords, "bescheid")
+	} else if containsAnyMCP(lower, []string{"mahnung", "zahlungserinnerung", "säumniszuschlag"}) {
+		result.DocumentType = "mahnung"
+		result.RequiresAction = true
+		result.Urgency = "high"
+		result.Confidence = 0.8
+		result.Keywords = append(result.Keywords, "mahnung")
+	} else if containsAnyMCP(lower, []string{"vorhalt", "vorhaltsbeantwortung"}) {
+		result.DocumentType = "vorhalt"
+		result.RequiresAction = true
+		result.Confidence = 0.7
+		result.Keywords = append(result.Keywords, "vorhalt")
+	} else if containsAnyMCP(lower, []string{"rechnung", "faktura", "invoice"}) {
+		result.DocumentType = "rechnung"
+		result.Confidence = 0.7
+		result.Keywords = append(result.Keywords, "rechnung")
+	} else if containsAnyMCP(lower, []string{"mitteilung", "information", "benachrichtigung"}) {
+		result.DocumentType = "mitteilung"
+		result.Confidence = 0.6
+		result.Keywords = append(result.Keywords, "mitteilung")
+	} else if containsAnyMCP(lower, []string{"zahlungsbefehl", "exekution"}) {
+		result.DocumentType = "zahlungsbefehl"
+		result.RequiresAction = true
+		result.Urgency = "critical"
+		result.Confidence = 0.9
+		result.Keywords = append(result.Keywords, "zahlungsbefehl")
+	}
+
+	// Check for subtypes
+	if containsAnyMCP(lower, []string{"einkommensteuer", "est"}) {
+		result.DocumentSubtype = "einkommensteuer"
+	} else if containsAnyMCP(lower, []string{"umsatzsteuer", "ust", "uva"}) {
+		result.DocumentSubtype = "umsatzsteuer"
+	} else if containsAnyMCP(lower, []string{"körperschaftsteuer", "köst"}) {
+		result.DocumentSubtype = "körperschaftsteuer"
+	} else if containsAnyMCP(lower, []string{"lohnsteuer", "l16", "lohnzettel"}) {
+		result.DocumentSubtype = "lohnsteuer"
+	} else if containsAnyMCP(lower, []string{"sozialversicherung", "svnr", "gkk", "bva", "svs"}) {
+		result.DocumentSubtype = "sozialversicherung"
+	}
+
+	return result
+}
+
+type extractedDeadlineMCP struct {
+	Type        string `json:"type"`
+	Date        string `json:"date"`
+	Description string `json:"description"`
+	Confidence  float64 `json:"confidence"`
+}
+
+func extractDeadlinesHeuristic(text string) []extractedDeadlineMCP {
+	var deadlines []extractedDeadlineMCP
+
+	// Find date patterns (DD.MM.YYYY)
+	dates := findDatesInText(text)
+
+	for _, dateMatch := range dates {
+		if hasDeadlineContext(text, dateMatch) {
+			deadline := extractedDeadlineMCP{
+				Type:        determineDeadlineType(text, dateMatch),
+				Date:        dateMatch,
+				Description: "Extracted deadline",
+				Confidence:  0.7,
+			}
+			deadlines = append(deadlines, deadline)
+		}
+	}
+
+	return deadlines
+}
+
+func findDatesInText(text string) []string {
+	var dates []string
+
+	// Simple pattern matching for DD.MM.YYYY
+	// In production, use regexp
+	for i := 0; i < len(text)-9; i++ {
+		if text[i] >= '0' && text[i] <= '3' {
+			if i+9 < len(text) {
+				potential := text[i : i+10]
+				if isDatePattern(potential) {
+					dates = append(dates, potential)
+				}
+			}
+		}
+	}
+
+	return dates
+}
+
+func isDatePattern(s string) bool {
+	if len(s) != 10 {
+		return false
+	}
+	// Check DD.MM.YYYY pattern
+	return s[2] == '.' && s[5] == '.' &&
+		isDigit(s[0]) && isDigit(s[1]) &&
+		isDigit(s[3]) && isDigit(s[4]) &&
+		isDigit(s[6]) && isDigit(s[7]) && isDigit(s[8]) && isDigit(s[9])
+}
+
+func isDigit(c byte) bool {
+	return c >= '0' && c <= '9'
+}
+
+func isDigitRune(r rune) bool {
+	return r >= '0' && r <= '9'
+}
+
+func hasDeadlineContext(text, date string) bool {
+	keywords := []string{"bis", "frist", "zahlbar", "einreich", "bis zum", "bis spätestens"}
+	idx := indexOfMCP(text, date)
+	if idx == -1 {
+		return false
+	}
+
+	// Check context before date
+	start := idx - 50
+	if start < 0 {
+		start = 0
+	}
+	context := toLower(text[start:idx])
+
+	for _, kw := range keywords {
+		if containsMCP(context, kw) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func determineDeadlineType(text, date string) string {
+	idx := indexOfMCP(text, date)
+	if idx == -1 {
+		return "other"
+	}
+
+	start := idx - 100
+	if start < 0 {
+		start = 0
+	}
+	context := toLower(text[start:idx])
+
+	if containsMCP(context, "zahlung") || containsMCP(context, "entrichten") {
+		return "payment"
+	}
+	if containsMCP(context, "berufung") || containsMCP(context, "beschwerde") {
+		return "appeal"
+	}
+	if containsMCP(context, "einreich") || containsMCP(context, "abgeben") {
+		return "submission"
+	}
+
+	return "response"
+}
+
+type extractedAmountMCP struct {
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
+	Type     string  `json:"type"`
+	Context  string  `json:"context"`
+}
+
+func extractAmountsHeuristic(text string) []extractedAmountMCP {
+	var amounts []extractedAmountMCP
+
+	// Find EUR amount patterns
+	// Look for patterns like: €1.234,56 or 1.234,56 EUR
+	patterns := findAmountsInText(text)
+
+	for _, p := range patterns {
+		amounts = append(amounts, extractedAmountMCP{
+			Amount:   p.Amount,
+			Currency: "EUR",
+			Type:     classifyAmountType(text, p.Position),
+			Context:  getAmountContext(text, p.Position),
+		})
+	}
+
+	return amounts
+}
+
+type amountMatch struct {
+	Amount   float64
+	Position int
+}
+
+func findAmountsInText(text string) []amountMatch {
+	var matches []amountMatch
+
+	// Simple pattern matching for Euro amounts
+	// Iterate over runes to handle multi-byte characters like €
+	runes := []rune(text)
+	for i := 0; i < len(runes)-5; i++ {
+		if runes[i] == '€' || (i > 0 && i+2 < len(runes) && string(runes[i:i+3]) == "EUR") {
+			// Look for number after € or EUR
+			searchStart := i + 1
+			if string(runes[i:i+3]) == "EUR" {
+				searchStart = i + 3
+			}
+			amount, length := parseAmount(string(runes), searchStart)
+			if amount > 0 && amount < 10000000 {
+				matches = append(matches, amountMatch{Amount: amount, Position: i})
+				i += length
+			}
+		} else if isDigitRune(runes[i]) {
+			// Check if this is part of an amount pattern
+			amount, length := parseAmount(string(runes), i)
+			if amount > 0 && amount < 10000000 && hasEuroIndicator(text, i, length) {
+				matches = append(matches, amountMatch{Amount: amount, Position: i})
+				i += length
+			}
+		}
+	}
+
+	return matches
+}
+
+func parseAmount(text string, start int) (float64, int) {
+	// Skip whitespace
+	for start < len(text) && text[start] == ' ' {
+		start++
+	}
+
+	var numStr string
+	i := start
+
+	// Parse digits and separators
+	for i < len(text) {
+		c := text[i]
+		if isDigit(c) {
+			numStr += string(c)
+		} else if c == '.' || c == ' ' {
+			// Thousand separator - skip
+		} else if c == ',' {
+			// Decimal separator
+			numStr += "."
+		} else {
+			break
+		}
+		i++
+	}
+
+	if numStr == "" {
+		return 0, 0
+	}
+
+	// Parse float
+	var amount float64
+	for j := 0; j < len(numStr); j++ {
+		c := numStr[j]
+		if c == '.' {
+			// Parse decimal part
+			var decimal float64
+			divisor := 10.0
+			for k := j + 1; k < len(numStr); k++ {
+				decimal += float64(numStr[k]-'0') / divisor
+				divisor *= 10
+			}
+			amount += decimal
+			break
+		} else {
+			amount = amount*10 + float64(c-'0')
+		}
+	}
+
+	return amount, i - start
+}
+
+func hasEuroIndicator(text string, start, length int) bool {
+	// Check for € or EUR before or after the amount
+	before := ""
+	if start > 5 {
+		before = text[start-5 : start]
+	} else if start > 0 {
+		before = text[0:start]
+	}
+
+	after := ""
+	end := start + length
+	if end+4 < len(text) {
+		after = text[end : end+4]
+	}
+
+	return containsMCP(before, "€") || containsMCP(before, "eur") ||
+		containsMCP(after, "€") || containsMCP(after, "EUR") || containsMCP(after, "eur")
+}
+
+func classifyAmountType(text string, position int) string {
+	start := position - 100
+	if start < 0 {
+		start = 0
+	}
+	context := toLower(text[start:position])
+
+	if containsMCP(context, "nachzahlung") || containsMCP(context, "zahlen") {
+		return "payment_due"
+	}
+	if containsMCP(context, "guthaben") || containsMCP(context, "erstattung") {
+		return "refund"
+	}
+	if containsMCP(context, "steuer") || containsMCP(context, "abgabe") {
+		return "tax"
+	}
+	if containsMCP(context, "strafe") || containsMCP(context, "zuschlag") {
+		return "penalty"
+	}
+
+	return "other"
+}
+
+func getAmountContext(text string, position int) string {
+	start := position - 30
+	if start < 0 {
+		start = 0
+	}
+	end := position + 30
+	if end > len(text) {
+		end = len(text)
+	}
+	return text[start:end]
+}
+
+type summarizationResult struct {
+	Text         string   `json:"text"`
+	WordCount    int      `json:"word_count"`
+	KeySentences []string `json:"key_sentences"`
+}
+
+func generateBasicSummary(text string) summarizationResult {
+	// Count words
+	words := 0
+	inWord := false
+	for _, c := range text {
+		if c == ' ' || c == '\n' || c == '\t' {
+			inWord = false
+		} else if !inWord {
+			inWord = true
+			words++
+		}
+	}
+
+	// Extract first few sentences as key sentences
+	var sentences []string
+	var current string
+	for _, c := range text {
+		current += string(c)
+		if c == '.' || c == '!' || c == '?' {
+			trimmed := trimSpace(current)
+			if len(trimmed) > 20 && len(sentences) < 3 {
+				sentences = append(sentences, trimmed)
+			}
+			current = ""
+		}
+	}
+
+	// Generate basic summary
+	summary := "Dokument enthält " + itoa(words) + " Wörter."
+	if len(sentences) > 0 {
+		summary = sentences[0]
+	}
+
+	return summarizationResult{
+		Text:         summary,
+		WordCount:    words,
+		KeySentences: sentences,
+	}
+}
+
+// Helper functions for string operations
+
+func toLower(s string) string {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			result[i] = c + 32
+		} else {
+			result[i] = c
+		}
+	}
+	return string(result)
+}
+
+func containsAnyMCP(text string, keywords []string) bool {
+	for _, kw := range keywords {
+		if containsMCP(text, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsMCP(s, substr string) bool {
+	return indexOfMCP(s, substr) >= 0
+}
+
+func indexOfMCP(s, substr string) int {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+
+func trimSpace(s string) string {
+	start := 0
+	for start < len(s) && (s[start] == ' ' || s[start] == '\n' || s[start] == '\t') {
+		start++
+	}
+	end := len(s)
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\n' || s[end-1] == '\t') {
+		end--
+	}
+	return s[start:end]
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var result string
+	for n > 0 {
+		result = string('0'+byte(n%10)) + result
+		n /= 10
+	}
+	return result
+}

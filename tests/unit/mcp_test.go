@@ -621,12 +621,17 @@ func TestMCPAllToolsRegistered(t *testing.T) {
 		"fo-bic-lookup",
 		"fo-sv-nummer-validate",
 		"fo-fn-validate",
-		// New 5 operational tools
+		// 5 operational tools
 		"fo-databox-list",
 		"fo-databox-download",
 		"fo-fb-search",
 		"fo-fb-extract",
 		"fo-uva-submit",
+		// 4 AI document intelligence tools (011-ai-document-intelligence)
+		"fo-document-classify",
+		"fo-deadline-extract",
+		"fo-amount-extract",
+		"fo-document-summarize",
 	}
 
 	for _, expected := range expectedTools {
@@ -642,7 +647,7 @@ func TestMCPAllToolsRegistered(t *testing.T) {
 		}
 	}
 
-	if len(tools) != 10 {
-		t.Errorf("Expected 10 tools, got %d", len(tools))
+	if len(tools) != 14 {
+		t.Errorf("Expected 14 tools, got %d", len(tools))
 	}
 }

@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.test
+*.out
+
+# Documentation
+*.md
+!README.md
+specs/
+.specify/
+.claude/
+
+# Environment and secrets
+.env
+.env.*
+*.enc.bak
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Node (if any frontend)
+node_modules/
