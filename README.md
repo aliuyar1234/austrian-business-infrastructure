@@ -276,6 +276,6 @@ See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**[Documentation](docs/)** • **[Issues](issues/)** • **[Discussions](discussions/)**
+**[Documentation](docs/)**
 
 </div>
