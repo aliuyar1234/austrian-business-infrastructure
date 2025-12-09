@@ -48,7 +48,7 @@ coverage.html
 # Internal Development Files (NOT for GitHub)
 # ============================================
 
-# Claude Code / AI assistant files
+# Development configuration files
 .claude/
 CLAUDE.md
 
