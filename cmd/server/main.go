@@ -10,9 +10,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/austrian-business-infrastructure/fo/internal/account"
 	"github.com/austrian-business-infrastructure/fo/internal/api"
 	"github.com/austrian-business-infrastructure/fo/internal/auth"
 	"github.com/austrian-business-infrastructure/fo/internal/config"
+	"github.com/austrian-business-infrastructure/fo/internal/firmenbuch"
+	"github.com/austrian-business-infrastructure/fo/internal/invoice"
+	"github.com/austrian-business-infrastructure/fo/internal/payment"
+	"github.com/austrian-business-infrastructure/fo/internal/tenant"
+	"github.com/austrian-business-infrastructure/fo/internal/uid"
+	"github.com/austrian-business-infrastructure/fo/internal/user"
+	"github.com/austrian-business-infrastructure/fo/internal/uva"
+	"github.com/austrian-business-infrastructure/fo/internal/zm"
 	"github.com/austrian-business-infrastructure/fo/pkg/cache"
 	"github.com/austrian-business-infrastructure/fo/pkg/database"
 )
@@ -87,9 +96,71 @@ func run() error {
 	router.HandleFunc("GET /health", healthHandler())
 	router.HandleFunc("GET /ready", readyHandler(db, redis))
 
-	// API v1 routes
-	apiV1 := router.Group("/api/v1")
-	_ = apiV1 // Will be used when registering handlers
+	// Initialize repositories (use db.Pool to get underlying *pgxpool.Pool)
+	tenantRepo := tenant.NewRepository(db.Pool)
+	userRepo := user.NewRepository(db.Pool)
+	accountRepo := account.NewRepository(db.Pool)
+	uvaRepo := uva.NewRepository(db.Pool)
+	zmRepo := zm.NewRepository(db.Pool)
+	invoiceRepo := invoice.NewRepository(db.Pool)
+	paymentRepo := payment.NewRepository(db.Pool)
+	firmenbuchRepo := firmenbuch.NewRepository(db.Pool)
+	uidRepo := uid.NewRepository(db.Pool)
+
+	// Initialize services
+	userService := user.NewService(userRepo)
+	tenantService := tenant.NewService(db.Pool, tenantRepo, userRepo)
+
+	accountService, err := account.NewService(accountRepo, []byte(cfg.EncryptionKey))
+	if err != nil {
+		return fmt.Errorf("failed to create account service: %w", err)
+	}
+
+	uvaService := uva.NewService(uvaRepo, accountService)
+	zmService := zm.NewService(zmRepo, accountService)
+	invoiceService := invoice.NewService(invoiceRepo)
+	paymentService := payment.NewService(paymentRepo)
+	firmenbuchService := firmenbuch.NewService(firmenbuchRepo, nil) // client nil for now
+	uidService := uid.NewService(uidRepo, accountService)
+
+	// Initialize JWT manager with revocation support
+	jwtConfig := auth.DefaultJWTConfig(cfg.JWTSecret)
+	jwtManager := auth.NewJWTManager(jwtConfig)
+	revocationList := auth.NewTokenRevocationList(redis.Client) // redis.Client is embedded *redis.Client
+	jwtManager.SetRevocationList(revocationList)
+
+	// Initialize session manager (needs pgxpool.Pool, cache.Client, TTL)
+	sessionManager := auth.NewSessionManager(db.Pool, redis, 7*24*time.Hour)
+
+	// Initialize handlers
+	authHandler := auth.NewHandler(tenantService, userService, sessionManager, jwtManager, logger)
+	accountHandler := account.NewHandler(accountService)
+	uvaHandler := uva.NewHandler(uvaService)
+	zmHandler := zm.NewHandler(zmService)
+	invoiceHandler := invoice.NewHandler(invoiceService)
+	paymentHandler := payment.NewHandler(paymentService)
+	firmenbuchHandler := firmenbuch.NewHandler(firmenbuchService)
+	uidHandler := uid.NewHandler(uidService)
+
+	// Auth middleware
+	authMiddleware := auth.NewAuthMiddleware(jwtManager)
+	requireAuth := authMiddleware.RequireAuth
+	requireAdmin := authMiddleware.RequireRole("admin")
+
+	// Register routes
+	// Auth routes (no auth required for login/register)
+	authHandler.RegisterRoutes(router)
+
+	// Protected routes
+	accountHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	uvaHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	zmHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	invoiceHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	paymentHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	firmenbuchHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+	uidHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+
+	logger.Info("API routes registered")
 
 	// Create HTTP server
 	server := &http.Server{

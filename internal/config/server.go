@@ -175,6 +175,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 }
 
 // Validate checks that all required configuration is present
+// In production, this will reject insecure defaults to prevent misconfiguration
 func (c *ServerConfig) Validate() error {
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
@@ -194,7 +195,50 @@ func (c *ServerConfig) Validate() error {
 	if len(c.EncryptionKey) != 32 {
 		return fmt.Errorf("ENCRYPTION_KEY must be exactly 32 bytes for AES-256")
 	}
+
+	// Reject insecure defaults in production (fail-fast for self-hosted users)
+	env := getEnv("APP_ENV", "production")
+	if env == "production" || env == "prod" {
+		// Block known insecure defaults
+		insecureSecrets := []string{
+			"dev-jwt-secret-change-in-production",
+			"your-256-bit-secret-key-change-in-production",
+			"change-me",
+			"secret",
+		}
+		for _, insecure := range insecureSecrets {
+			if c.JWTSecret == insecure {
+				return fmt.Errorf("JWT_SECRET contains an insecure default value - please generate a secure secret with: openssl rand -hex 32")
+			}
+		}
+
+		// Block default encryption key
+		if c.EncryptionKey == "12345678901234567890123456789012" ||
+			c.EncryptionKey == "your-32-byte-encryption-key-here" {
+			return fmt.Errorf("ENCRYPTION_KEY contains an insecure default value - please generate a secure key with: openssl rand -hex 16")
+		}
+
+		// Block dev database passwords in DATABASE_URL
+		if containsAny(c.DatabaseURL, []string{"abp_dev_password", "password", "postgres:postgres"}) {
+			return fmt.Errorf("DATABASE_URL contains an insecure default password - please use a strong password")
+		}
+	}
+
 	return nil
+}
+
+// containsAny checks if s contains any of the substrings
+func containsAny(s string, substrings []string) bool {
+	for _, sub := range substrings {
+		if len(sub) > 0 && len(s) >= len(sub) {
+			for i := 0; i <= len(s)-len(sub); i++ {
+				if s[i:i+len(sub)] == sub {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // Address returns the server address in host:port format

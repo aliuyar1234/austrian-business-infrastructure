@@ -24,13 +24,16 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers UID validation routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
+	// Admin-only: batch operations and imports (consume API quota)
+	router.Handle("POST /api/v1/uid/validate/batch", requireAuth(requireAdmin(http.HandlerFunc(h.ValidateBatch))))
+	router.Handle("POST /api/v1/uid/import", requireAuth(requireAdmin(http.HandlerFunc(h.ImportCSV))))
+
+	// Member access: single validation, format check, read operations
 	router.Handle("POST /api/v1/uid/validate", requireAuth(http.HandlerFunc(h.Validate)))
-	router.Handle("POST /api/v1/uid/validate/batch", requireAuth(http.HandlerFunc(h.ValidateBatch)))
 	router.Handle("POST /api/v1/uid/validate/format", requireAuth(http.HandlerFunc(h.ValidateFormat)))
 	router.Handle("GET /api/v1/uid/validations", requireAuth(http.HandlerFunc(h.List)))
 	router.Handle("GET /api/v1/uid/validations/{id}", requireAuth(http.HandlerFunc(h.Get)))
 	router.Handle("GET /api/v1/uid/validations/export", requireAuth(http.HandlerFunc(h.Export)))
-	router.Handle("POST /api/v1/uid/import", requireAuth(http.HandlerFunc(h.ImportCSV)))
 }
 
 // ValidateRequest represents the validate UID request

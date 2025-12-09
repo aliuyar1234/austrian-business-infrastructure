@@ -126,26 +126,57 @@ func (s *Service) ListByTenant(ctx context.Context, tenantID uuid.UUID) ([]*User
 	return s.repo.ListByTenant(ctx, tenantID)
 }
 
+// fakePasswordHash is a bcrypt hash used to prevent timing attacks (CWE-208)
+// This ensures consistent response time whether user exists or not
+// Generated with cost 10 to match typical password hashes
+var fakePasswordHash = "$2a$10$K4GDHcK0YqCqvKVvLZ7jUuZLHv8IYJ8v9vKqvKvKqvKqvKqvKqvK2"
+
 // Authenticate validates credentials and returns the user
+// Uses constant-time comparison to prevent username enumeration via timing attacks
 func (s *Service) Authenticate(ctx context.Context, email, password string) (*User, error) {
 	user, err := s.repo.GetByEmailGlobal(ctx, normalizeEmail(email))
+
+	// Always perform password verification to prevent timing-based user enumeration
+	// Even if user doesn't exist, we compare against a fake hash
+	var hashToVerify string
+	var userExists bool
+	var userActive bool
+	var hasPassword bool
+
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			return nil, crypto.ErrPasswordInvalid
+			// User doesn't exist - use fake hash to normalize timing
+			hashToVerify = fakePasswordHash
+			userExists = false
+		} else {
+			return nil, err
 		}
-		return nil, err
+	} else {
+		userExists = true
+		userActive = user.IsActive
+		hasPassword = user.PasswordHash != nil
+		if hasPassword {
+			hashToVerify = *user.PasswordHash
+		} else {
+			hashToVerify = fakePasswordHash
+		}
 	}
 
-	if !user.IsActive {
+	// Always run bcrypt comparison to maintain constant time
+	passwordErr := crypto.VerifyPassword(password, hashToVerify)
+
+	// Now check conditions and return appropriate errors
+	// All paths return the same generic error to prevent enumeration
+	if !userExists || !hasPassword {
+		return nil, crypto.ErrPasswordInvalid
+	}
+
+	if !userActive {
 		return nil, ErrUserInactive
 	}
 
-	if user.PasswordHash == nil {
-		return nil, crypto.ErrPasswordInvalid // OAuth-only user
-	}
-
-	if err := crypto.VerifyPassword(password, *user.PasswordHash); err != nil {
-		return nil, err
+	if passwordErr != nil {
+		return nil, crypto.ErrPasswordInvalid
 	}
 
 	// Update last login

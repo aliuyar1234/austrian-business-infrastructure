@@ -1,0 +1,150 @@
+# =============================================================================
+# SELF-HOSTED PRODUCTION CONFIGURATION
+# =============================================================================
+# Ready-to-run configuration for self-hosted deployments with:
+#   - Automatic TLS via Caddy (Let's Encrypt)
+#   - Auto database migrations on startup
+#   - Resource limits
+#   - Security hardening
+#   - Backup-ready volume configuration
+#
+# Quick Start:
+#   1. Copy .env.example to .env
+#   2. Generate secrets: ./scripts/generate-secrets.sh
+#   3. Set DOMAIN and ACME_EMAIL in .env
+#   4. Run: docker compose -f docker-compose.selfhost.yml up -d
+#
+# Updates:
+#   docker compose -f docker-compose.selfhost.yml pull
+#   docker compose -f docker-compose.selfhost.yml up -d
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # Caddy - Automatic TLS reverse proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: abp-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?DOMAIN is required}
+    networks:
+      - frontend
+    depends_on:
+      - server
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: abp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-abp}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  redis:
+    image: redis:6-alpine
+    container_name: abp-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  server:
+    image: ghcr.io/austrian-business-infrastructure/fo:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: abp-server
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-abp}?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required - generate with: openssl rand -hex 32}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required - generate with: openssl rand -hex 16}
+      SERVER_PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      APP_URL: https://${DOMAIN}
+      ALLOWED_ORIGINS: https://${DOMAIN}
+      # Auto-migrate on startup
+      AUTO_MIGRATE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64M
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true  # No external access
+
+volumes:
+  postgres_data:
+    name: abp_postgres_data
+  redis_data:
+    name: abp_redis_data
+  caddy_data:
+    name: abp_caddy_data
+  caddy_config:
+    name: abp_caddy_config

@@ -22,10 +22,13 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers invoice routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
-	router.Handle("POST /api/v1/invoices", requireAuth(http.HandlerFunc(h.Create)))
+	// Admin-only: create, delete invoices
+	router.Handle("POST /api/v1/invoices", requireAuth(requireAdmin(http.HandlerFunc(h.Create))))
+	router.Handle("DELETE /api/v1/invoices/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.Delete))))
+
+	// Member access: read and generate operations
 	router.Handle("GET /api/v1/invoices", requireAuth(http.HandlerFunc(h.List)))
 	router.Handle("GET /api/v1/invoices/{id}", requireAuth(http.HandlerFunc(h.Get)))
-	router.Handle("DELETE /api/v1/invoices/{id}", requireAuth(http.HandlerFunc(h.Delete)))
 	router.Handle("POST /api/v1/invoices/{id}/validate", requireAuth(http.HandlerFunc(h.Validate)))
 	router.Handle("POST /api/v1/invoices/{id}/generate", requireAuth(http.HandlerFunc(h.Generate)))
 	router.Handle("GET /api/v1/invoices/{id}/xml", requireAuth(http.HandlerFunc(h.GetXML)))

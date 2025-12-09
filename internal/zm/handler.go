@@ -22,15 +22,18 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers ZM routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
-	router.Handle("POST /api/v1/zm", requireAuth(http.HandlerFunc(h.Create)))
+	// Admin-only: create, update, delete, submit, import (financial submissions)
+	router.Handle("POST /api/v1/zm", requireAuth(requireAdmin(http.HandlerFunc(h.Create))))
+	router.Handle("PUT /api/v1/zm/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.Update))))
+	router.Handle("DELETE /api/v1/zm/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.Delete))))
+	router.Handle("POST /api/v1/zm/{id}/submit", requireAuth(requireAdmin(http.HandlerFunc(h.Submit))))
+	router.Handle("POST /api/v1/zm/import", requireAuth(requireAdmin(http.HandlerFunc(h.ImportCSV))))
+
+	// Member access: read-only and validation
 	router.Handle("GET /api/v1/zm", requireAuth(http.HandlerFunc(h.List)))
 	router.Handle("GET /api/v1/zm/{id}", requireAuth(http.HandlerFunc(h.Get)))
-	router.Handle("PUT /api/v1/zm/{id}", requireAuth(http.HandlerFunc(h.Update)))
-	router.Handle("DELETE /api/v1/zm/{id}", requireAuth(http.HandlerFunc(h.Delete)))
 	router.Handle("POST /api/v1/zm/{id}/validate", requireAuth(http.HandlerFunc(h.Validate)))
-	router.Handle("POST /api/v1/zm/{id}/submit", requireAuth(http.HandlerFunc(h.Submit)))
 	router.Handle("GET /api/v1/zm/{id}/xml", requireAuth(http.HandlerFunc(h.GetXML)))
-	router.Handle("POST /api/v1/zm/import", requireAuth(http.HandlerFunc(h.ImportCSV)))
 }
 
 // CreateRequest represents the create ZM request

@@ -22,22 +22,22 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers payment routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
-	// Payment batches
-	router.Handle("POST /api/v1/payments/batches", requireAuth(http.HandlerFunc(h.CreateBatch)))
+	// Admin-only: create, delete, import (financial operations)
+	router.Handle("POST /api/v1/payments/batches", requireAuth(requireAdmin(http.HandlerFunc(h.CreateBatch))))
+	router.Handle("DELETE /api/v1/payments/batches/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.DeleteBatch))))
+	router.Handle("POST /api/v1/payments/batches/import", requireAuth(requireAdmin(http.HandlerFunc(h.ImportCSV))))
+	router.Handle("POST /api/v1/payments/statements", requireAuth(requireAdmin(http.HandlerFunc(h.ImportStatement))))
+	router.Handle("DELETE /api/v1/payments/statements/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.DeleteStatement))))
+	router.Handle("POST /api/v1/payments/transactions/{id}/match", requireAuth(requireAdmin(http.HandlerFunc(h.MatchTransaction))))
+
+	// Member access: read-only, validation, and generate operations
 	router.Handle("GET /api/v1/payments/batches", requireAuth(http.HandlerFunc(h.ListBatches)))
 	router.Handle("GET /api/v1/payments/batches/{id}", requireAuth(http.HandlerFunc(h.GetBatch)))
-	router.Handle("DELETE /api/v1/payments/batches/{id}", requireAuth(http.HandlerFunc(h.DeleteBatch)))
 	router.Handle("POST /api/v1/payments/batches/{id}/validate", requireAuth(http.HandlerFunc(h.ValidateBatch)))
 	router.Handle("POST /api/v1/payments/batches/{id}/generate", requireAuth(http.HandlerFunc(h.GenerateXML)))
 	router.Handle("GET /api/v1/payments/batches/{id}/xml", requireAuth(http.HandlerFunc(h.GetXML)))
-	router.Handle("POST /api/v1/payments/batches/import", requireAuth(http.HandlerFunc(h.ImportCSV)))
-
-	// Bank statements
-	router.Handle("POST /api/v1/payments/statements", requireAuth(http.HandlerFunc(h.ImportStatement)))
 	router.Handle("GET /api/v1/payments/statements", requireAuth(http.HandlerFunc(h.ListStatements)))
 	router.Handle("GET /api/v1/payments/statements/{id}", requireAuth(http.HandlerFunc(h.GetStatement)))
-	router.Handle("DELETE /api/v1/payments/statements/{id}", requireAuth(http.HandlerFunc(h.DeleteStatement)))
-	router.Handle("POST /api/v1/payments/transactions/{id}/match", requireAuth(http.HandlerFunc(h.MatchTransaction)))
 }
 
 // CreateBatch handles POST /api/v1/payments/batches

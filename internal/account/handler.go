@@ -1,14 +1,46 @@
 package account
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/austrian-business-infrastructure/fo/internal/account/types"
 	"github.com/austrian-business-infrastructure/fo/internal/api"
 	"github.com/google/uuid"
 )
+
+// connectionTestPool limits concurrent background connection tests to prevent DoS (CWE-400)
+var connectionTestPool = make(chan struct{}, 10) // Max 10 concurrent tests
+var connectionTestOnce sync.Once
+
+func initConnectionTestPool() {
+	connectionTestOnce.Do(func() {
+		// Pool is already initialized via make()
+	})
+}
+
+// tryBackgroundConnectionTest attempts to run a connection test in the background
+// Returns false if the pool is full (rate limited)
+func (h *Handler) tryBackgroundConnectionTest(accountID, tenantID uuid.UUID) bool {
+	select {
+	case connectionTestPool <- struct{}{}:
+		go func() {
+			defer func() { <-connectionTestPool }()
+			// Use a new context since the request context may be cancelled
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			_, _ = h.service.TestConnection(ctx, accountID, tenantID)
+		}()
+		return true
+	default:
+		// Pool is full, skip background test
+		return false
+	}
+}
 
 // Handler handles account HTTP requests
 type Handler struct {
@@ -22,11 +54,14 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers account routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
-	router.Handle("POST /api/v1/accounts", requireAuth(http.HandlerFunc(h.Create)))
+	// Admin-only: create, update, delete accounts (sensitive credential management)
+	router.Handle("POST /api/v1/accounts", requireAuth(requireAdmin(http.HandlerFunc(h.Create))))
+	router.Handle("PUT /api/v1/accounts/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.Update))))
+	router.Handle("DELETE /api/v1/accounts/{id}", requireAuth(requireAdmin(http.HandlerFunc(h.Delete))))
+
+	// Member access: read-only operations
 	router.Handle("GET /api/v1/accounts", requireAuth(http.HandlerFunc(h.List)))
 	router.Handle("GET /api/v1/accounts/{id}", requireAuth(http.HandlerFunc(h.Get)))
-	router.Handle("PUT /api/v1/accounts/{id}", requireAuth(http.HandlerFunc(h.Update)))
-	router.Handle("DELETE /api/v1/accounts/{id}", requireAuth(http.HandlerFunc(h.Delete)))
 	router.Handle("POST /api/v1/accounts/{id}/test", requireAuth(http.HandlerFunc(h.TestConnection)))
 	router.Handle("GET /api/v1/accounts/{id}/tests", requireAuth(http.HandlerFunc(h.GetConnectionTests)))
 }
@@ -118,10 +153,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Auto-test connection
-	go func() {
-		_, _ = h.service.TestConnection(r.Context(), account.ID, tenantUUID)
-	}()
+	// Auto-test connection (rate-limited to prevent DoS)
+	h.tryBackgroundConnectionTest(account.ID, tenantUUID)
 
 	api.JSONResponse(w, http.StatusCreated, h.toResponse(account, nil))
 }
@@ -292,10 +325,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Auto-test after credential update
-		go func() {
-			_, _ = h.service.TestConnection(r.Context(), accountID, tenantUUID)
-		}()
+		// Auto-test after credential update (rate-limited to prevent DoS)
+		h.tryBackgroundConnectionTest(accountID, tenantUUID)
 	}
 
 	// Fetch updated account

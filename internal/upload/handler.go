@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +15,17 @@ import (
 	"github.com/austrian-business-infrastructure/fo/internal/client"
 	"github.com/austrian-business-infrastructure/fo/internal/tenant"
 )
+
+// sanitizeFilename removes dangerous characters from filenames for Content-Disposition
+// Prevents HTTP header injection attacks (CWE-113)
+var unsafeFilenameChars = regexp.MustCompile(`["\r\n\\]`)
+
+func sanitizeFilename(filename string) string {
+	// Remove potentially dangerous characters
+	safe := unsafeFilenameChars.ReplaceAllString(filename, "_")
+	// URL encode for RFC 5987 compliant filename*
+	return url.PathEscape(safe)
+}
 
 // Handler handles upload-related HTTP requests
 type Handler struct {
@@ -367,7 +380,8 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", mimeType)
-	w.Header().Set("Content-Disposition", `attachment; filename="`+upload.Filename+`"`)
+	// Use RFC 5987 encoding for filename to prevent header injection (CWE-113)
+	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+sanitizeFilename(upload.Filename))
 	w.Header().Set("Content-Length", strconv.FormatInt(upload.FileSize, 10))
 
 	io.Copy(w, reader)

@@ -21,20 +21,18 @@ func NewHandler(service *Service) *Handler {
 
 // RegisterRoutes registers firmenbuch routes
 func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin func(http.Handler) http.Handler) {
-	// Search and extract
+	// Admin-only: watchlist management
+	router.Handle("POST /api/v1/firmenbuch/watchlist", requireAuth(requireAdmin(http.HandlerFunc(h.AddToWatchlist))))
+	router.Handle("DELETE /api/v1/firmenbuch/watchlist/{fn}", requireAuth(requireAdmin(http.HandlerFunc(h.RemoveFromWatchlist))))
+
+	// Member access: search, read, validate operations
 	router.Handle("GET /api/v1/firmenbuch/search", requireAuth(http.HandlerFunc(h.Search)))
 	router.Handle("GET /api/v1/firmenbuch/extract/{fn}", requireAuth(http.HandlerFunc(h.GetExtract)))
 	router.Handle("POST /api/v1/firmenbuch/validate", requireAuth(http.HandlerFunc(h.ValidateFN)))
-
-	// Cached companies
 	router.Handle("GET /api/v1/firmenbuch/companies", requireAuth(http.HandlerFunc(h.ListCompanies)))
 	router.Handle("GET /api/v1/firmenbuch/companies/{fn}", requireAuth(http.HandlerFunc(h.GetCompany)))
 	router.Handle("GET /api/v1/firmenbuch/companies/{fn}/history", requireAuth(http.HandlerFunc(h.GetHistory)))
-
-	// Watchlist
-	router.Handle("POST /api/v1/firmenbuch/watchlist", requireAuth(http.HandlerFunc(h.AddToWatchlist)))
 	router.Handle("GET /api/v1/firmenbuch/watchlist", requireAuth(http.HandlerFunc(h.ListWatchlist)))
-	router.Handle("DELETE /api/v1/firmenbuch/watchlist/{fn}", requireAuth(http.HandlerFunc(h.RemoveFromWatchlist)))
 }
 
 // Search handles GET /api/v1/firmenbuch/search

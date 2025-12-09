@@ -22,7 +22,10 @@ FROM alpine:3.19
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# - ca-certificates: TLS verification
+# - tzdata: timezone support
+# - postgresql-client: pg_isready for health checks, psql for migrations
+RUN apk add --no-cache ca-certificates tzdata postgresql-client
 
 # Create non-root user
 RUN adduser -D -g '' appuser
@@ -30,8 +33,12 @@ RUN adduser -D -g '' appuser
 # Copy binary from builder
 COPY --from=builder /server /app/server
 
-# Copy migrations
+# Copy migrations and entrypoint
 COPY migrations /app/migrations
+COPY scripts/entrypoint.sh /app/entrypoint.sh
+
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
 
 # Use non-root user
 USER appuser
@@ -43,5 +50,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
-# Run the server
-ENTRYPOINT ["/app/server"]
+# Run via entrypoint (handles migrations and startup)
+ENTRYPOINT ["/app/entrypoint.sh"]

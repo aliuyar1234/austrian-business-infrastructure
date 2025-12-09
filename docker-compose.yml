@@ -1,3 +1,13 @@
+# =============================================================================
+# DEVELOPMENT ONLY - DO NOT USE IN PRODUCTION
+# =============================================================================
+# This docker-compose file contains default credentials for local development.
+# For production deployments:
+#   1. Use docker-compose.prod.yml or Kubernetes
+#   2. Set all secrets via environment variables or secret management
+#   3. Never use these default values
+# =============================================================================
+
 version: '3.8'
 
 services:
@@ -8,8 +18,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-abp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-abp_dev_password}
       POSTGRES_DB: ${POSTGRES_DB:-abp}
+    # Bind to localhost only - prevents external access (CWE-284)
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,13 +28,22 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   redis:
     image: redis:6-alpine
     container_name: abp-redis
     command: redis-server --appendonly yes
+    # Bind to localhost only - prevents external access (CWE-284)
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -31,6 +51,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
 
   server:
     build: .
@@ -49,6 +77,20 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Security hardening
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64M
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     profiles:
       - full
 
