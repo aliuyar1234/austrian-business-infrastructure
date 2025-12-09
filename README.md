@@ -312,7 +312,7 @@ LOG_LEVEL=info
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting PRs.
+Contributions are welcome.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/improvement`)
