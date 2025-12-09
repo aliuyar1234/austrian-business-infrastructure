@@ -11,7 +11,8 @@ const (
 	// RefreshTokenCookieName is the name of the refresh token cookie
 	RefreshTokenCookieName = "refresh_token"
 	// RefreshTokenCookiePath is the path for the refresh token cookie
-	RefreshTokenCookiePath = "/api/v1/auth"
+	// Set to /api/v1 to cover both main auth (/api/v1/auth/*) and portal auth (/api/v1/portal/auth/*)
+	RefreshTokenCookiePath = "/api/v1"
 )
 
 // CookieConfig holds cookie security configuration

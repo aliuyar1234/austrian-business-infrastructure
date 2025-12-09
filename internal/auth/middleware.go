@@ -38,12 +38,14 @@ func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 
 		token := authHeader[7:] // Remove "Bearer " prefix
 
-		// Validate token
-		claims, err := m.jwtManager.ValidateAccessToken(token)
+		// Validate token with context for revocation checks
+		claims, err := m.jwtManager.ValidateAccessTokenWithContext(r.Context(), token)
 		if err != nil {
 			switch err {
 			case ErrExpiredToken:
 				api.JSONError(w, http.StatusUnauthorized, "Token has expired", api.ErrCodeTokenExpired)
+			case ErrTokenRevoked:
+				api.JSONError(w, http.StatusUnauthorized, "Token has been revoked", api.ErrCodeInvalidToken)
 			case ErrInvalidToken, ErrInvalidClaims:
 				api.JSONError(w, http.StatusUnauthorized, "Invalid token", api.ErrCodeInvalidToken)
 			default:
@@ -85,9 +87,9 @@ func (m *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 		}
 
 		token := authHeader[7:]
-		claims, err := m.jwtManager.ValidateAccessToken(token)
+		claims, err := m.jwtManager.ValidateAccessTokenWithContext(r.Context(), token)
 		if err != nil {
-			// Invalid token - continue without auth
+			// Invalid or revoked token - continue without auth
 			next.ServeHTTP(w, r)
 			return
 		}

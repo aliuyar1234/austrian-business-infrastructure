@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -15,6 +16,7 @@ var (
 	ErrExpiredToken   = errors.New("token has expired")
 	ErrInvalidClaims  = errors.New("invalid token claims")
 	ErrTokenNotActive = errors.New("token not yet active")
+	ErrTokenRevoked   = errors.New("token has been revoked")
 )
 
 // TokenType distinguishes between access and refresh tokens
@@ -65,6 +67,7 @@ func DefaultJWTConfig(secret string) *JWTConfig {
 type JWTManager struct {
 	config     *JWTConfig
 	keyManager *ECDSAKeyManager
+	revoker    *TokenRevocationList
 }
 
 // NewJWTManager creates a new JWT manager
@@ -81,6 +84,20 @@ func NewJWTManagerWithKeyManager(config *JWTConfig, km *ECDSAKeyManager) *JWTMan
 		config:     config,
 		keyManager: km,
 	}
+}
+
+// NewJWTManagerWithRevocation creates a JWT manager with revocation support
+func NewJWTManagerWithRevocation(config *JWTConfig, revoker *TokenRevocationList) *JWTManager {
+	return &JWTManager{
+		config:     config,
+		keyManager: GetECDSAKeyManager(),
+		revoker:    revoker,
+	}
+}
+
+// SetRevocationList sets the token revocation list for the JWT manager
+func (m *JWTManager) SetRevocationList(revoker *TokenRevocationList) {
+	m.revoker = revoker
 }
 
 // TokenPair contains both access and refresh tokens
@@ -187,7 +204,13 @@ func (m *JWTManager) signES256(claims *Claims) (string, error) {
 
 // ValidateToken validates a token and returns claims.
 // Supports both ES256 (ECDSA) and HS256 (HMAC) for backward compatibility.
+// If a revocation list is configured, checks if the token has been revoked.
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
+	return m.ValidateTokenWithContext(context.Background(), tokenString)
+}
+
+// ValidateTokenWithContext validates a token with context for revocation checks.
+func (m *JWTManager) ValidateTokenWithContext(ctx context.Context, tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		// Check signing method
 		switch token.Method.(type) {
@@ -217,6 +240,18 @@ func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, ErrInvalidClaims
 	}
 
+	// Check revocation list if configured
+	if m.revoker != nil {
+		revoked, _, err := m.revoker.CheckRevocation(ctx, claims)
+		if err != nil {
+			// Fail closed on revocation check errors for security
+			return nil, ErrTokenRevoked
+		}
+		if revoked {
+			return nil, ErrTokenRevoked
+		}
+	}
+
 	return claims, nil
 }
 
@@ -230,7 +265,12 @@ func (m *JWTManager) getVerificationKey() (interface{}, error) {
 
 // ValidateAccessToken validates an access token
 func (m *JWTManager) ValidateAccessToken(tokenString string) (*Claims, error) {
-	claims, err := m.ValidateToken(tokenString)
+	return m.ValidateAccessTokenWithContext(context.Background(), tokenString)
+}
+
+// ValidateAccessTokenWithContext validates an access token with context for revocation checks
+func (m *JWTManager) ValidateAccessTokenWithContext(ctx context.Context, tokenString string) (*Claims, error) {
+	claims, err := m.ValidateTokenWithContext(ctx, tokenString)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +284,12 @@ func (m *JWTManager) ValidateAccessToken(tokenString string) (*Claims, error) {
 
 // ValidateRefreshToken validates a refresh token
 func (m *JWTManager) ValidateRefreshToken(tokenString string) (*Claims, error) {
-	claims, err := m.ValidateToken(tokenString)
+	return m.ValidateRefreshTokenWithContext(context.Background(), tokenString)
+}
+
+// ValidateRefreshTokenWithContext validates a refresh token with context for revocation checks
+func (m *JWTManager) ValidateRefreshTokenWithContext(ctx context.Context, tokenString string) (*Claims, error) {
+	claims, err := m.ValidateTokenWithContext(ctx, tokenString)
 	if err != nil {
 		return nil, err
 	}
