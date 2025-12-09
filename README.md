@@ -92,20 +92,73 @@ go build -o server ./cmd/server
 ./fo sepa pain001 payments.csv --debtor-iban AT611904300234573201 -o payments.xml
 ```
 
-### Server Mode
+### Server Mode (Development)
 
 ```bash
-# Generate JWT keys
-openssl ecparam -name prime256v1 -genkey -noout -out jwt-private.pem
+# Start dependencies
+docker compose up -d postgres redis
 
 # Configure environment
-export DATABASE_URL="postgres://user:pass@localhost/austrian_business"
-export REDIS_URL="redis://localhost:6379"
-export JWT_ECDSA_KEY_FILE="./jwt-private.pem"
+cp .env.example .env
+# Edit .env with your settings
 
 # Start server
-./server
+go run ./cmd/server
 ```
+
+## Self-Hosted Deployment
+
+Production-ready deployment with automatic HTTPS via Caddy.
+
+### Quick Deploy
+
+```bash
+# 1. Generate secure secrets
+./scripts/generate-secrets.sh > .env
+
+# 2. Configure your domain
+echo "DOMAIN=your-domain.com" >> .env
+echo "ACME_EMAIL=admin@your-domain.com" >> .env
+
+# 3. Deploy
+docker compose -f docker-compose.selfhost.yml up -d
+```
+
+### What's Included
+
+- **Automatic TLS** — Caddy handles Let's Encrypt certificates
+- **Auto Migrations** — Database schema updates on container restart
+- **Security Hardening** — Read-only filesystem, resource limits, no exposed DB ports
+- **Backup/Restore** — Scripts for data management
+
+### Updates
+
+```bash
+docker compose -f docker-compose.selfhost.yml pull
+docker compose -f docker-compose.selfhost.yml up -d
+```
+
+### Backup & Restore
+
+```bash
+# Backup (saves to ./backups/)
+./scripts/backup.sh
+
+# Backup to S3
+./scripts/backup.sh s3://your-bucket/backups
+
+# Restore
+./scripts/restore.sh backups/abp_backup_20240101_120000.tar.gz
+```
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.selfhost.yml` | Production with Caddy (recommended) |
+| `docker-compose.prod.yml` | Production with Traefik (advanced) |
+| `docker-compose.yml` | Local development only |
+| `Caddyfile` | Reverse proxy with security headers |
 
 ## Documentation
 
@@ -167,9 +220,10 @@ Built with enterprise security requirements in mind.
 
 - **Rate Limiting** — Per-IP and per-user limits, fail-closed for auth endpoints
 - **Token Revocation** — Redis-backed blacklist with user/tenant-level revocation
-- **Security Headers** — CSP, X-Frame-Options, HSTS
+- **Security Headers** — CSP, X-Frame-Options, HSTS, X-Content-Type-Options
 - **Audit Logging** — Structured security event logging
 - **Secrets Management** — Provider abstraction (env, file, Vault-ready)
+- **CI/CD Security** — Automated gosec, govulncheck, and Trivy container scanning
 
 ### Data Protection
 
