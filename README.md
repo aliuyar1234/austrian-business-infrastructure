@@ -14,34 +14,34 @@
 
 ## Problems this solves
 
-**Steuerberater / Buchhaltung**
-> "Ich manage 30 FinanzOnline Accounts für unsere Tochterfirmen. Jeden Tag einloggen, 2FA für jeden einzeln, nur um zu schauen ob neue Bescheide da sind. Dauert Stunden."
+**Tax Advisors / Accounting**
+> "I manage 30 FinanzOnline accounts for our subsidiaries. Every day I log into each one, 2FA for every single account, just to check for new documents. Takes hours."
 
-→ `./fo databox --all` — 30 Accounts in 12 Sekunden.
+→ `./fo databox --all` — 30 accounts in 12 seconds.
 
-**HR-Abteilung**
-> "Mitarbeiter anmelden, abmelden, Lohnzettel einreichen — alles manuell über ELDA. Bei 50+ Mitarbeitern pro Monat wird das zur Vollzeitbeschäftigung."
+**HR Departments**
+> "Employee registration, deregistration, annual tax forms — all manual through ELDA. With 50+ employees per month, it becomes a full-time job."
 
 → `./fo elda anmeldung --file employees.json` — Batch processing.
 
-**Unternehmen mit Compliance-Anforderungen**
-> "Für Due Diligence brauchen wir regelmäßig Firmenbuchauszüge. Jedes Mal manuell suchen und runterladen."
+**Compliance Teams**
+> "We need company registry extracts regularly for due diligence. Every time it's manual search and download."
 
-→ `./fo fb search "GmbH" --extract` — Automatisiert, überwacht, benachrichtigt.
+→ `./fo fb search "GmbH" --extract` — Automated, monitored, notified.
 
 **Finance / Treasury**
-> "SEPA-Zahlungsdateien händisch zusammenbauen ist fehleranfällig. Kontoauszüge abgleichen noch schlimmer."
+> "Building SEPA payment files by hand is error-prone. Reconciling bank statements is even worse."
 
-→ `./fo sepa pain001 payments.csv` — Generiert, validiert, fertig.
+→ `./fo sepa pain001 payments.csv` — Generated, validated, done.
 
-**Geschäftsführung**
-> "Welche Förderungen gibt es für uns? AWS, FFG, EU? Keine Ahnung wo anfangen."
+**Management**
+> "What funding programs exist for us? AWS, FFG, EU? No idea where to start."
 
-→ 74 österreichische Förderprogramme durchsuchbar, mit Eligibility-Matching.
+→ 74 Austrian funding programs searchable, with eligibility matching.
 
 ---
 
-**Das ist die erste Open-Source Lösung für österreichische Behörden-APIs.**
+**This is the first open-source solution for Austrian government APIs.**
 
 ---
 
