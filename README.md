@@ -2,7 +2,7 @@
 
 # Austrian Business Infrastructure
 
-**Go toolkit for Austrian government API integrations**
+**The first open-source toolkit for Austrian government API integrations**
 
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-ed1c24?style=flat-square)](LICENSE)
@@ -14,11 +14,15 @@
 
 ## Why this exists
 
-Austrian government services have APIs — FinanzOnline, ELDA, Firmenbuch. They work. But they're SOAP-based, XML-heavy, and undocumented in any practical sense.
+Austrian government services have APIs — FinanzOnline, ELDA, Firmenbuch. They work. But:
 
-Every company that needs to integrate builds their own wrappers from scratch. There's no shared open-source foundation.
+- **SOAP/XML** — Nobody wants to write SOAP clients in 2025
+- **Zero documentation** — Good luck finding examples
+- **No open-source tooling** — Search GitHub. Nothing exists.
 
-This project fixes that.
+Every Austrian company needing these integrations builds from scratch. Exposed to the same XML, the same cryptic error codes, the same WSDL files from 2008.
+
+**This is the first open-source solution.**
 
 ---
 
