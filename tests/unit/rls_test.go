@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/security"
+	"austrian-business-infrastructure/internal/security"
 	"github.com/google/uuid"
 )
 

@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
-	"github.com/austrian-business-infrastructure/fo/internal/account/types"
+	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/account/types"
 	"github.com/google/uuid"
 )
 

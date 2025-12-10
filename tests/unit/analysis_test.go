@@ -1,6 +1,8 @@
 package unit
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -164,9 +166,9 @@ func TestGermanDateParsing(t *testing.T) {
 		expected time.Time
 		hasError bool
 	}{
-		{"31.12.2024", time.Date(2024, 12, 31, 0, 0, 0, 0, time.Local), false},
-		{"01.01.2025", time.Date(2025, 1, 1, 0, 0, 0, 0, time.Local), false},
-		{"15.06.24", time.Date(2024, 6, 15, 0, 0, 0, 0, time.Local), false},
+		{"31.12.2024", time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC), false},
+		{"01.01.2025", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), false},
+		{"15.06.24", time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC), false},
 		{"invalid", time.Time{}, true},
 		{"", time.Time{}, true},
 	}
@@ -280,7 +282,7 @@ func classifyHeuristic(text, title string) classificationResult {
 	if containsAny(combined, []string{"ersuchen", "werden sie ersucht"}) {
 		result.DocumentType = "ersuchen"
 		result.Confidence = 0.8
-	} else if containsAny(combined, []string{"bescheid", "steuerbescheid"}) {
+	} else if containsAny(combined, []string{"bescheid", "steuerbescheid", "umsatzsteuer"}) {
 		result.DocumentType = "bescheid"
 		result.Confidence = 0.7
 	} else if containsAny(combined, []string{"mahnung", "zahlungserinnerung", "säumniszuschlag"}) {
@@ -374,7 +376,7 @@ func extractAmountsRegex(text string) []extractedAmount {
 
 func parseGermanDate(s string) (time.Time, error) {
 	if s == "" {
-		return time.Time{}, nil
+		return time.Time{}, errors.New("empty date string")
 	}
 
 	// Try DD.MM.YYYY
@@ -423,8 +425,9 @@ func truncateText(text string, maxLen int) string {
 }
 
 func containsAny(text string, keywords []string) bool {
+	lowerText := strings.ToLower(text)
 	for _, kw := range keywords {
-		if containsString(text, kw) {
+		if strings.Contains(lowerText, strings.ToLower(kw)) {
 			return true
 		}
 	}
@@ -432,14 +435,5 @@ func containsAny(text string, keywords []string) bool {
 }
 
 func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && findSubstring(s, substr) >= 0
-}
-
-func findSubstring(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

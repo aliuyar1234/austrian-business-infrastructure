@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/job"
+	"austrian-business-infrastructure/internal/job"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

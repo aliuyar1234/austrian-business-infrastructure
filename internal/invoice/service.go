@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/erechnung"
+	"austrian-business-infrastructure/internal/erechnung"
 	"github.com/google/uuid"
 )
 

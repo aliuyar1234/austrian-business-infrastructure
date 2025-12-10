@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
+	"austrian-business-infrastructure/internal/elda"
 )
 
 // Service handles mBGM business logic

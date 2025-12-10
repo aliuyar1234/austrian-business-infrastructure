@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/uva"
+	"austrian-business-infrastructure/internal/uva"
 	"github.com/google/uuid"
 )
 

@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // Helper to mock authentication
-async function login(page: any) {
+async function login(page: Page) {
 	// Set mock auth state in localStorage
 	await page.addInitScript(() => {
 		localStorage.setItem('auth_token', 'mock-jwt-token');
@@ -111,7 +111,7 @@ test.describe('Dashboard', () => {
 
 		// Check that dark class is applied or removed from html
 		const htmlElement = page.locator('html');
-		const hasDarkClass = await htmlElement.evaluate((el) => el.classList.contains('dark'));
+		const hasDarkClass = await htmlElement.evaluate((el: Element) => el.classList.contains('dark'));
 		// Just verify the toggle worked (either on or off)
 		expect(typeof hasDarkClass).toBe('boolean');
 	});

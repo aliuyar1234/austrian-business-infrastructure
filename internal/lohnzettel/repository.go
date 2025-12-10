@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
+	"austrian-business-infrastructure/internal/elda"
 )
 
 var (

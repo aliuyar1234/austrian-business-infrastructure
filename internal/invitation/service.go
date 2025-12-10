@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/user"
-	"github.com/austrian-business-infrastructure/fo/pkg/crypto"
+	"austrian-business-infrastructure/internal/user"
+	"austrian-business-infrastructure/pkg/crypto"
 	"github.com/google/uuid"
 )
 

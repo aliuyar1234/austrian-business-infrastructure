@@ -1,4 +1,4 @@
-module github.com/austrian-business-infrastructure/fo
+module austrian-business-infrastructure
 
 go 1.24.0
 

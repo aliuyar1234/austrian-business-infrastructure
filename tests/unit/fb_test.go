@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/fb"
+	"austrian-business-infrastructure/internal/fb"
 )
 
 // T067: Test FBSearchRequest serialization

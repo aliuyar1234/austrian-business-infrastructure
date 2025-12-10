@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	imports "github.com/austrian-business-infrastructure/fo/internal/import"
+	imports "austrian-business-infrastructure/internal/import"
 )
 
 // T065: Integration tests for CSV import

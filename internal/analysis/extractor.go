@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/ai"
+	"austrian-business-infrastructure/internal/ai"
 )
 
 // Extractor handles extraction of structured data from documents

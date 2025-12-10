@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account/types"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/account/types"
+	"austrian-business-infrastructure/internal/fonws"
 )
 
 // FinanzOnlineConnector tests connections to FinanzOnline

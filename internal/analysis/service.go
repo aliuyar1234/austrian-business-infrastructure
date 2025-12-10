@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/austrian-business-infrastructure/fo/internal/ai"
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/ocr"
+	"austrian-business-infrastructure/internal/ai"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/ocr"
 )
 
 // Service orchestrates document analysis
@@ -209,8 +209,8 @@ func (s *Service) AnalyzeDocument(ctx context.Context, documentID, tenantID uuid
 		return nil, fmt.Errorf("create analysis: %w", err)
 	}
 
-	// Get document content
-	content, storageInfo, err := s.docService.GetContent(ctx, documentID)
+	// Get document content with tenant isolation
+	content, storageInfo, err := s.docService.GetContent(ctx, tenantID, documentID)
 	if err != nil {
 		s.failAnalysis(ctx, analysis, "document_not_found", err.Error())
 		return nil, fmt.Errorf("get document: %w", err)
@@ -224,8 +224,8 @@ func (s *Service) AnalyzeDocument(ctx context.Context, documentID, tenantID uuid
 		return nil, fmt.Errorf("read content: %w", err)
 	}
 
-	// Get document metadata
-	doc, err := s.docService.GetByID(ctx, documentID)
+	// Get document metadata with tenant isolation
+	doc, err := s.docService.GetByID(ctx, tenantID, documentID)
 	if err != nil {
 		s.failAnalysis(ctx, analysis, "document_not_found", err.Error())
 		return nil, fmt.Errorf("get document metadata: %w", err)

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/security"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/security"
 	"github.com/google/uuid"
 )
 

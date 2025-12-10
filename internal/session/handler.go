@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/auth"
 	"github.com/google/uuid"
 )
 

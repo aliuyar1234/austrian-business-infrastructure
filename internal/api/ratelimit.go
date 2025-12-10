@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/pkg/cache"
+	"austrian-business-infrastructure/pkg/cache"
 )
 
 // RateLimiter provides rate limiting functionality

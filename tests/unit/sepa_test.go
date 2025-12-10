@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/sepa"
+	"austrian-business-infrastructure/internal/sepa"
 )
 
 // T105: Test pain.001 XML generation

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
+	"austrian-business-infrastructure/internal/auth"
+	"austrian-business-infrastructure/internal/job"
 )
 
 // SessionCleanup is the job type for cleaning up expired sessions

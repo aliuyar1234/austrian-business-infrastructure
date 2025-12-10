@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/fonws"
 )
 
 // T030: Test UID validation request serialization

@@ -1,10 +1,12 @@
+//go:build !windows
+
 package integration
 
 import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/analysis"
+	"austrian-business-infrastructure/internal/analysis"
 	"github.com/google/uuid"
 )
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/erechnung"
+	"austrian-business-infrastructure/internal/erechnung"
 )
 
 // T087: Test Invoice struct to XRechnung XML

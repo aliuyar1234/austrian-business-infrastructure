@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/fonws"
 	"github.com/google/uuid"
 )
 

@@ -570,6 +570,26 @@ func (r *Repository) CheckDuplicateTID(ctx context.Context, tenantID uuid.UUID, 
 	return exists, err
 }
 
+// VerifyAccountOwnership checks if an account belongs to the specified tenant.
+// Returns nil if the account exists and belongs to the tenant, error otherwise.
+// This method implements document.AccountVerifier interface for cross-package tenant isolation.
+func (r *Repository) VerifyAccountOwnership(ctx context.Context, accountID, tenantID uuid.UUID) error {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM accounts
+			WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+		)
+	`
+	var exists bool
+	if err := r.db.QueryRow(ctx, query, accountID, tenantID).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return ErrAccountNotFound
+	}
+	return nil
+}
+
 // Helper function to convert int to string
 func itoa(i int) string {
 	return strconv.Itoa(i)

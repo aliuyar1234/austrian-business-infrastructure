@@ -10,20 +10,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
-	"github.com/austrian-business-infrastructure/fo/internal/config"
-	"github.com/austrian-business-infrastructure/fo/internal/firmenbuch"
-	"github.com/austrian-business-infrastructure/fo/internal/invoice"
-	"github.com/austrian-business-infrastructure/fo/internal/payment"
-	"github.com/austrian-business-infrastructure/fo/internal/tenant"
-	"github.com/austrian-business-infrastructure/fo/internal/uid"
-	"github.com/austrian-business-infrastructure/fo/internal/user"
-	"github.com/austrian-business-infrastructure/fo/internal/uva"
-	"github.com/austrian-business-infrastructure/fo/internal/zm"
-	"github.com/austrian-business-infrastructure/fo/pkg/cache"
-	"github.com/austrian-business-infrastructure/fo/pkg/database"
+	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/auth"
+	"austrian-business-infrastructure/internal/config"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/firmenbuch"
+	"austrian-business-infrastructure/internal/invoice"
+	"austrian-business-infrastructure/internal/payment"
+	"austrian-business-infrastructure/internal/tenant"
+	"austrian-business-infrastructure/internal/uid"
+	"austrian-business-infrastructure/internal/user"
+	"austrian-business-infrastructure/internal/uva"
+	"austrian-business-infrastructure/internal/zm"
+	"austrian-business-infrastructure/pkg/cache"
+	"austrian-business-infrastructure/pkg/database"
 )
 
 func main() {
@@ -123,6 +124,26 @@ func run() error {
 	firmenbuchService := firmenbuch.NewService(firmenbuchRepo, nil) // client nil for now
 	uidService := uid.NewService(uidRepo, accountService)
 
+	// Initialize document storage and service with IDOR protection
+	docStorage, err := document.NewStorage(&document.StorageConfig{
+		Type:              document.StorageType(cfg.StorageType),
+		LocalPath:         cfg.StorageLocalPath,
+		S3Endpoint:        cfg.StorageS3Endpoint,
+		S3Bucket:          cfg.StorageS3Bucket,
+		S3Region:          cfg.StorageS3Region,
+		S3AccessKeyID:     cfg.StorageS3AccessKeyID,
+		S3SecretAccessKey: cfg.StorageS3SecretKey,
+		S3UseSSL:          cfg.StorageS3UseSSL,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create document storage: %w", err)
+	}
+
+	docRepo := document.NewRepository(db.Pool)
+	// CRITICAL: Use NewServiceWithAccountVerifier to enable tenant isolation on document creation
+	// This prevents IDOR attacks where attackers could create documents for accounts they don't own
+	docService := document.NewServiceWithAccountVerifier(docRepo, docStorage, accountRepo)
+
 	// Initialize JWT manager with revocation support
 	jwtConfig := auth.DefaultJWTConfig(cfg.JWTSecret)
 	jwtManager := auth.NewJWTManager(jwtConfig)
@@ -141,6 +162,7 @@ func run() error {
 	paymentHandler := payment.NewHandler(paymentService)
 	firmenbuchHandler := firmenbuch.NewHandler(firmenbuchService)
 	uidHandler := uid.NewHandler(uidService)
+	docHandler := document.NewHandler(docService)
 
 	// Auth middleware
 	authMiddleware := auth.NewAuthMiddleware(jwtManager)
@@ -159,6 +181,13 @@ func run() error {
 	paymentHandler.RegisterRoutes(router, requireAuth, requireAdmin)
 	firmenbuchHandler.RegisterRoutes(router, requireAuth, requireAdmin)
 	uidHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+
+	// Document routes (protected by auth middleware)
+	// Wrap document routes with auth middleware since RegisterRoutes uses raw mux
+	docMux := http.NewServeMux()
+	docHandler.RegisterRoutes(docMux)
+	router.Handle("/api/v1/documents", requireAuth(docMux))
+	router.Handle("/api/v1/documents/", requireAuth(docMux))
 
 	logger.Info("API routes registered")
 
@@ -225,17 +254,17 @@ func readyHandler(db *database.Pool, redis *cache.Client) http.HandlerFunc {
 		checks := make(map[string]string)
 		healthy := true
 
-		// Check database
+		// Check database - don't leak error details to unauthenticated callers
 		if err := db.Health(ctx); err != nil {
-			checks["database"] = "unhealthy: " + err.Error()
+			checks["database"] = "unhealthy"
 			healthy = false
 		} else {
 			checks["database"] = "healthy"
 		}
 
-		// Check Redis
+		// Check Redis - don't leak error details to unauthenticated callers
 		if err := redis.Health(ctx); err != nil {
-			checks["redis"] = "unhealthy: " + err.Error()
+			checks["redis"] = "unhealthy"
 			healthy = false
 		} else {
 			checks["redis"] = "healthy"

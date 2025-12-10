@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
+	"austrian-business-infrastructure/internal/account"
 )
 
 var (

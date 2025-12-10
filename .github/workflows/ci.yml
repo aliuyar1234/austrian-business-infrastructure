@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Restrict permissions for security
+permissions:
+  contents: read
+  security-events: write  # For SARIF uploads
+
 env:
   GO_VERSION: '1.22'
 
@@ -39,10 +44,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491  # v5.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -57,7 +64,7 @@ jobs:
           REDIS_URL: redis://localhost:6379
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673  # v4.5.0
         with:
           files: coverage.out
           fail_ci_if_error: false
@@ -67,18 +74,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491  # v5.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86  # v6.1.0
         with:
-          version: latest
+          version: v1.61.0  # Pin to specific version
           args: --timeout=5m
 
   security:
@@ -86,18 +95,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491  # v5.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@6fbd81c9e946e59a5c7540d0fce44e0f4dd36a83  # v2.20.0
         with:
-          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+          args: '-fmt sarif -out gosec-results.sarif ./...'
+        # Removed -no-fail: gosec will now fail the build on findings
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
@@ -107,7 +119,7 @@ jobs:
 
       - name: Run govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
           govulncheck ./...
 
   build:
@@ -116,10 +128,12 @@ jobs:
     needs: [test, lint]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491  # v5.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -129,7 +143,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3  # v4.3.1
         with:
           name: server-binary
           path: server
@@ -140,13 +154,15 @@ jobs:
     needs: [test, lint]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226  # v3.0.0
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56  # v5.1.0
         with:
           context: .
           push: false
@@ -156,12 +172,13 @@ jobs:
           load: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@a20de5420d57c4102486cdd9578b45609c99d7eb  # v0.24.0
         with:
           image-ref: 'abp-server:${{ github.sha }}'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
+          exit-code: '1'  # Fail build on CRITICAL/HIGH vulnerabilities
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3

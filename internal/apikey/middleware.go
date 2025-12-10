@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
+	"austrian-business-infrastructure/internal/api"
 )
 
 // Middleware provides API key authentication middleware

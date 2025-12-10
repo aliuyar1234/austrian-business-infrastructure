@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/store"
+	"austrian-business-infrastructure/internal/store"
 )
 
 // T035: Integration test for add/list/remove account flow

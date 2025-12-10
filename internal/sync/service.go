@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/fonws"
 	"github.com/google/uuid"
 )
 
@@ -54,6 +54,12 @@ func NewService(
 	logger := slog.Default()
 	if cfg != nil && cfg.Logger != nil {
 		logger = cfg.Logger
+	}
+
+	// Wire AccountVerifier for tenant isolation on document creation
+	// This ensures documents can only be created for accounts owned by the tenant
+	if docService != nil && accountRepo != nil {
+		docService.SetAccountVerifier(accountRepo)
 	}
 
 	return &Service{

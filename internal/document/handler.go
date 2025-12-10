@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
+	"austrian-business-infrastructure/internal/api"
 	"github.com/google/uuid"
 )
 
@@ -19,6 +19,15 @@ type Handler struct {
 // NewHandler creates a new document handler
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+// getTenantID extracts and parses tenant ID from request context
+func getTenantID(r *http.Request) (uuid.UUID, error) {
+	tenantIDStr := api.GetTenantID(r.Context())
+	if tenantIDStr == "" {
+		return uuid.Nil, ErrDocumentNotFound // Return not found to avoid info leak
+	}
+	return uuid.Parse(tenantIDStr)
 }
 
 // RegisterRoutes registers document routes
@@ -213,6 +222,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -220,7 +235,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	doc, err := h.service.GetByID(ctx, id)
+	doc, err := h.service.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if err == ErrDocumentNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
@@ -237,6 +252,12 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetContent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -245,10 +266,10 @@ func (h *Handler) GetContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark as read when content is accessed
-	h.service.MarkAsRead(ctx, id)
+	h.service.MarkAsRead(ctx, tenantID, id)
 
 	// Get content
-	content, info, err := h.service.GetContent(ctx, id)
+	content, info, err := h.service.GetContent(ctx, tenantID, id)
 	if err != nil {
 		if err == ErrDocumentNotFound || err == ErrStorageNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
@@ -282,6 +303,12 @@ type DownloadURLResponse struct {
 func (h *Handler) GetDownloadURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -297,7 +324,7 @@ func (h *Handler) GetDownloadURL(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	url, err := h.service.GetSignedURL(ctx, id, expiry)
+	url, err := h.service.GetSignedURL(ctx, tenantID, id, expiry)
 	if err != nil {
 		if err == ErrDocumentNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
@@ -312,7 +339,7 @@ func (h *Handler) GetDownloadURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark as read when URL is generated
-	h.service.MarkAsRead(ctx, id)
+	h.service.MarkAsRead(ctx, tenantID, id)
 
 	api.JSONResponse(w, http.StatusOK, &DownloadURLResponse{
 		URL:       url,
@@ -328,6 +355,12 @@ type UpdateStatusRequest struct {
 // UpdateStatus updates the status of a document
 func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
 
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
@@ -347,7 +380,7 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.UpdateStatus(ctx, id, req.Status); err != nil {
+	if err := h.service.UpdateStatus(ctx, tenantID, id, req.Status); err != nil {
 		if err == ErrDocumentNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
 			return
@@ -363,6 +396,12 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Archive(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -370,7 +409,7 @@ func (h *Handler) Archive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Archive(ctx, id); err != nil {
+	if err := h.service.Archive(ctx, tenantID, id); err != nil {
 		if err == ErrDocumentNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
 			return
@@ -391,6 +430,12 @@ type BulkArchiveRequest struct {
 func (h *Handler) BulkArchive(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusForbidden, "access denied", api.ErrCodeForbidden)
+		return
+	}
+
 	var req BulkArchiveRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		api.JSONError(w, http.StatusBadRequest, "invalid request body", api.ErrCodeBadRequest)
@@ -407,7 +452,7 @@ func (h *Handler) BulkArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.service.BulkArchive(ctx, req.IDs)
+	count, err := h.service.BulkArchive(ctx, tenantID, req.IDs)
 	if err != nil {
 		api.JSONError(w, http.StatusInternalServerError, "failed to archive documents", api.ErrCodeInternalError)
 		return
@@ -423,6 +468,12 @@ func (h *Handler) BulkArchive(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -430,7 +481,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Delete(ctx, id); err != nil {
+	if err := h.service.Delete(ctx, tenantID, id); err != nil {
 		if err == ErrDocumentNotFound {
 			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
 			return
@@ -504,7 +555,7 @@ func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	api.JSONResponse(w, http.StatusOK, response)
 }
 
-// GetExpired returns documents past their retention date
+// GetExpired returns documents past their retention date with pagination
 func (h *Handler) GetExpired(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	tenantID := api.GetTenantID(ctx)
@@ -520,7 +571,21 @@ func (h *Handler) GetExpired(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	documents, err := h.service.GetExpired(ctx, tenantUUID)
+	// Parse pagination params with defaults
+	limit := 50
+	offset := 0
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if parsed, err := strconv.Atoi(offsetStr); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	documents, total, err := h.service.GetExpired(ctx, tenantUUID, limit, offset)
 	if err != nil {
 		api.JSONError(w, http.StatusInternalServerError, "failed to get expired documents", api.ErrCodeInternalError)
 		return
@@ -533,6 +598,9 @@ func (h *Handler) GetExpired(w http.ResponseWriter, r *http.Request) {
 
 	api.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"documents": responses,
-		"count":     len(documents),
+		"total":     total,
+		"limit":     limit,
+		"offset":    offset,
+		"has_more":  offset+len(documents) < total,
 	})
 }

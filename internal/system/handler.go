@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
+	"austrian-business-infrastructure/internal/api"
 )
 
 var (

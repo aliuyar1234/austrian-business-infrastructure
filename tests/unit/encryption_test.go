@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
+	"austrian-business-infrastructure/internal/account"
 )
 
 // T066: Unit tests for encryption

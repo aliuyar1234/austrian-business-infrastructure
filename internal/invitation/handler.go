@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
-	"github.com/austrian-business-infrastructure/fo/internal/tenant"
-	"github.com/austrian-business-infrastructure/fo/internal/user"
-	"github.com/austrian-business-infrastructure/fo/pkg/crypto"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/auth"
+	"austrian-business-infrastructure/internal/tenant"
+	"austrian-business-infrastructure/internal/user"
+	"austrian-business-infrastructure/pkg/crypto"
 	"github.com/google/uuid"
 )
 

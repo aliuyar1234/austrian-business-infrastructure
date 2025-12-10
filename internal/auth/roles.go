@@ -3,7 +3,7 @@ package auth
 import (
 	"errors"
 
-	"github.com/austrian-business-infrastructure/fo/internal/user"
+	"austrian-business-infrastructure/internal/user"
 )
 
 var (

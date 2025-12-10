@@ -5,6 +5,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import FoerderungsWidget from '$lib/components/domain/FoerderungsWidget.svelte';
 
 	// Mock data - would come from API
 	let stats = $state({
@@ -229,4 +230,15 @@
 			{/each}
 		</div>
 	</Card>
+
+	<!-- Förderungen section -->
+	<div class="mt-8 pt-8 border-t border-black/6">
+		<div class="flex items-center justify-between mb-6">
+			<div>
+				<h2 class="text-xl font-bold text-[var(--color-ink)]">Förderungen</h2>
+				<p class="text-sm text-[var(--color-ink-muted)] mt-1">Ihre Förderanträge und passende Programme</p>
+			</div>
+		</div>
+		<FoerderungsWidget />
+	</div>
 </div>

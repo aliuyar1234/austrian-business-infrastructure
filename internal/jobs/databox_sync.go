@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
-	syncpkg "github.com/austrian-business-infrastructure/fo/internal/sync"
+	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/job"
+	syncpkg "austrian-business-infrastructure/internal/sync"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

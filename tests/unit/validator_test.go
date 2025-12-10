@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
+	"austrian-business-infrastructure/internal/account"
 )
 
 // T067: Unit tests for validators

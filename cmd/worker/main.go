@@ -10,12 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/analysis"
-	"github.com/austrian-business-infrastructure/fo/internal/config"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
-	"github.com/austrian-business-infrastructure/fo/internal/jobs"
-	"github.com/austrian-business-infrastructure/fo/pkg/cache"
-	"github.com/austrian-business-infrastructure/fo/pkg/database"
+	"austrian-business-infrastructure/internal/analysis"
+	"austrian-business-infrastructure/internal/config"
+	"austrian-business-infrastructure/internal/job"
+	"austrian-business-infrastructure/internal/jobs"
+	"austrian-business-infrastructure/pkg/cache"
+	"austrian-business-infrastructure/pkg/database"
 	"github.com/google/uuid"
 )
 

@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/store"
+	"austrian-business-infrastructure/internal/store"
 )
 
 // T031: Test Account struct validation (TID format, unique name)

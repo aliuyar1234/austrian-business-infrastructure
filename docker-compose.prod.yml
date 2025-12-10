@@ -4,15 +4,21 @@
 # This configuration includes:
 #   - TLS termination via Traefik reverse proxy
 #   - Automatic Let's Encrypt certificates
-#   - Resource limits on all containers
+#   - Resource limits on all containers (requires Swarm mode or --compatibility)
 #   - Read-only filesystems where possible
 #   - No exposed database ports
 #   - Security hardening options
+#   - Pinned image versions for supply-chain security
 #
 # Prerequisites:
 #   1. Set all environment variables (see .env.example)
 #   2. Configure DNS to point to this server
 #   3. Open ports 80 and 443 on firewall
+#   4. Run migrations manually before starting: docker-compose run --rm server /app/migrate
+#
+# Security Note:
+#   For production, consider using Docker Secrets instead of environment variables
+#   for sensitive values like POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SIGNING_KEY.
 #
 # Usage:
 #   docker-compose -f docker-compose.prod.yml up -d
@@ -23,7 +29,7 @@ version: '3.8'
 services:
   # TLS Reverse Proxy - handles HTTPS termination
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.10.7  # Pinned version - check https://github.com/traefik/traefik/releases for updates
     container_name: abp-traefik
     command:
       - "--api.dashboard=false"
@@ -60,7 +66,7 @@ services:
           memory: 64M
 
   postgres:
-    image: postgres:14-alpine
+    image: postgres:14.13-alpine  # Pinned version for supply-chain security
     container_name: abp-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -87,7 +93,7 @@ services:
           memory: 512M
 
   redis:
-    image: redis:6-alpine
+    image: redis:7.4.1-alpine  # Pinned version for supply-chain security
     container_name: abp-redis
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     # No ports exposed - only accessible via internal network

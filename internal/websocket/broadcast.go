@@ -2,7 +2,7 @@ package websocket
 
 import (
 	"github.com/google/uuid"
-	"github.com/austrian-business-infrastructure/fo/internal/document"
+	"austrian-business-infrastructure/internal/document"
 )
 
 // Broadcaster provides methods to broadcast events to connected clients

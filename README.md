@@ -20,13 +20,15 @@
 A production-ready platform for integrating with Austrian government services and business APIs. Built for tax advisors, accountants, and enterprises handling Austrian tax filings, employee registrations, and financial documents.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Austrian Business Infrastructure              │
-├─────────────────────────────────────────────────────────────────┤
-│  CLI Tool    │  REST API    │  Client Portal  │  MCP Server    │
-├─────────────────────────────────────────────────────────────────┤
-│  FinanzOnline  │  ELDA  │  Firmenbuch  │  E-Rechnung  │  SEPA  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     Austrian Business Infrastructure                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│   CLI Tool   │   REST API   │   Client Portal   │   MCP Server           │
+├──────────────────────────────────────────────────────────────────────────┤
+│  FinanzOnline  │  ELDA  │  Firmenbuch  │  Digital Signatures  │  SEPA    │
+├──────────────────────────────────────────────────────────────────────────┤
+│  E-Rechnung  │  AI Analysis  │  Förderungsradar  │  Document Management  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
@@ -38,6 +40,10 @@ A production-ready platform for integrating with Austrian government services an
 | **Firmenbuch** | Company registry search, extracts, watchlist monitoring |
 | **E-Rechnung** | XRechnung/ZUGFeRD invoice generation (EN16931) |
 | **SEPA** | pain.001/pain.008 generation, camt.053 parsing, IBAN/BIC validation |
+| **Digital Signatures** | A-Trust and ID Austria integration for qualified electronic signatures |
+| **AI Document Analysis** | LLM-powered document classification, OCR, and data extraction |
+| **Förderungsradar** | 74 Austrian funding programs with eligibility matching |
+| **Client Portal** | White-label portal for end-client document access |
 
 ### Platform Capabilities
 
@@ -183,6 +189,9 @@ fo elda        Social insurance operations
 fo fb          Company registry (Firmenbuch)
 fo erechnung   E-invoice generation
 fo sepa        SEPA payment files
+fo sign        Digital signatures (A-Trust/ID Austria)
+fo foerderung  Austrian funding program search and matching
+fo analyze     AI document analysis
 fo mcp         MCP server for AI integration
 fo dashboard   Multi-service status overview
 ```
@@ -204,26 +213,34 @@ For AI integration with Claude Desktop:
 
 ## Security
 
-Built with enterprise security requirements in mind.
+Built with enterprise security requirements in mind and hardened through comprehensive security audits.
 
 ### Authentication
 
 | Feature | Implementation |
 |---------|---------------|
-| Token Signing | ES256 (ECDSA P-256) |
+| Token Signing | ES256 (ECDSA P-256) — HS256 deprecated |
 | Access Tokens | 15-minute expiry, memory-only storage |
 | Refresh Tokens | httpOnly, Secure, SameSite=Strict cookies |
 | 2FA | TOTP with encrypted secret storage |
 | WebSocket | First-message authentication pattern |
 
-### Infrastructure
+### Multi-Tenant Isolation
+
+- **Row-Level Security (RLS)** — PostgreSQL policies enforce tenant boundaries at database level
+- **IDOR Protection** — AccountVerifier pattern validates ownership on all write operations
+- **Context Propagation** — Tenant ID flows through middleware → service → repository layers
+- **pgx RLS Integration** — Automatic `SET app.tenant_id` on connection acquire
+
+### Infrastructure Security
 
 - **Rate Limiting** — Per-IP and per-user limits, fail-closed for auth endpoints
 - **Token Revocation** — Redis-backed blacklist with user/tenant-level revocation
 - **Security Headers** — CSP, X-Frame-Options, HSTS, X-Content-Type-Options
 - **Audit Logging** — Structured security event logging
 - **Secrets Management** — Provider abstraction (env, file, Vault-ready)
-- **CI/CD Security** — Automated gosec, govulncheck, and Trivy container scanning
+- **CI/CD Security** — All GitHub Actions pinned to SHA hashes; gosec, govulncheck, Trivy scanning
+- **Container Hardening** — Docker images pinned to specific versions, resource limits enforced
 
 ### Data Protection
 
@@ -251,10 +268,28 @@ internal/
 ├── erechnung/          # E-invoice generation
 ├── sepa/               # SEPA file handling
 ├── mcp/                # MCP server
-└── tenant/             # Multi-tenant support
+├── tenant/             # Multi-tenant support
+├── security/           # RLS, rate limiting, suspicious activity detection
+├── signature/          # A-Trust/ID Austria digital signatures
+├── analysis/           # AI document analysis and OCR
+├── foerderung/         # Austrian funding programs database
+├── matcher/            # LLM-powered eligibility matching
+├── profil/             # Company profiles and KMU classification
+├── client/             # Client portal management
+├── document/           # Document storage and lifecycle
+├── sync/               # FinanzOnline databox synchronization
+└── jobs/               # Background job definitions
+
+pkg/
+├── database/           # PostgreSQL connection with RLS support
+└── scheduler/          # Job scheduling utilities
 
 frontend/               # SvelteKit admin dashboard
 portal/                 # SvelteKit client portal
+tests/
+├── unit/               # Unit tests
+├── integration/        # Integration tests
+└── e2e/                # End-to-end tests
 ```
 
 ## Testing
@@ -265,6 +300,12 @@ go test ./...
 
 # Unit tests with coverage
 go test ./tests/unit/... -cover
+
+# Integration tests (requires PostgreSQL and Redis)
+go test ./tests/integration/... -v
+
+# Security tests
+go test ./tests/unit/security/... -v
 
 # Specific module
 go test ./tests/unit/... -run TestJWT -v
@@ -279,6 +320,8 @@ go test ./tests/unit/... -run TestJWT -v
 | FinanzOnline API | Official WebService integration |
 | ELDA | Austrian social insurance reporting |
 | SEPA | ISO 20022 payment standards |
+| eIDAS | Qualified electronic signatures via A-Trust |
+| OWASP Top 10 | Security controls for common vulnerabilities |
 
 ## Requirements
 
@@ -287,7 +330,7 @@ go test ./tests/unit/... -run TestJWT -v
 | Component | Version |
 |-----------|---------|
 | Go | 1.24+ |
-| PostgreSQL | 15+ |
+| PostgreSQL | 14+ |
 | Redis | 7+ |
 
 ### Credentials

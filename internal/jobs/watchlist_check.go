@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/austrian-business-infrastructure/fo/internal/fb"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
-	"github.com/austrian-business-infrastructure/fo/internal/watchlist"
-	"github.com/austrian-business-infrastructure/fo/internal/webhook"
+	"austrian-business-infrastructure/internal/fb"
+	"austrian-business-infrastructure/internal/job"
+	"austrian-business-infrastructure/internal/watchlist"
+	"austrian-business-infrastructure/internal/webhook"
 	"github.com/google/uuid"
 )
 

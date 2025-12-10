@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/sepa"
+	"austrian-business-infrastructure/internal/sepa"
 	"github.com/spf13/cobra"
 )
 

@@ -186,7 +186,10 @@ func (m *JWTManager) generateToken(user *UserInfo, tokenType TokenType, expiry t
 		return m.signES256(claims)
 	}
 
-	// Fallback to HS256 (deprecated, for migration only)
+	// DEPRECATED: HS256 fallback - DO NOT USE IN PRODUCTION
+	// This path only exists for development/migration purposes.
+	// ES256 is required for production deployments.
+	// This code path will be removed in a future version.
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(m.config.Secret))
 }
@@ -218,7 +221,8 @@ func (m *JWTManager) ValidateTokenWithContext(ctx context.Context, tokenString s
 			// ES256 - use public key
 			return m.getVerificationKey()
 		case *jwt.SigningMethodHMAC:
-			// HS256 - use secret (deprecated, for migration)
+			// DEPRECATED: HS256 validation - only for migration/development
+			// Production deployments must use ES256
 			if !m.config.UseES256 {
 				return []byte(m.config.Secret), nil
 			}

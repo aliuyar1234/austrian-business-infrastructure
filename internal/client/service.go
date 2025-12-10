@@ -17,7 +17,13 @@ var (
 	ErrInvitationUsed    = errors.New("invitation has already been used")
 	ErrInvitationInvalid = errors.New("invalid invitation token")
 	ErrNotActive         = errors.New("client is not active")
+	ErrAccountNotOwned   = errors.New("account does not belong to tenant")
 )
+
+// AccountVerifier verifies account ownership for tenant isolation
+type AccountVerifier interface {
+	VerifyAccountOwnership(ctx context.Context, accountID, tenantID uuid.UUID) error
+}
 
 // Invitation represents a client invitation
 type Invitation struct {
@@ -60,10 +66,14 @@ type ActivationInfo struct {
 type Service struct {
 	repo              *Repository
 	pool              *pgxpool.Pool
+	accountVerifier   AccountVerifier
 	invitationExpiry  time.Duration
 }
 
 // NewService creates a new client service
+// IMPORTANT: After creating the service, call SetAccountVerifier() with an account.Repository
+// to enable tenant isolation on account access grants. Without this, Invite() and
+// UpdateAccountAccess() will skip ownership verification.
 func NewService(pool *pgxpool.Pool, invitationExpiryHours int) *Service {
 	return &Service{
 		repo:             NewRepository(pool),
@@ -75,6 +85,24 @@ func NewService(pool *pgxpool.Pool, invitationExpiryHours int) *Service {
 // Repository returns the underlying repository
 func (s *Service) Repository() *Repository {
 	return s.repo
+}
+
+// SetAccountVerifier sets the account verifier for tenant isolation
+func (s *Service) SetAccountVerifier(verifier AccountVerifier) {
+	s.accountVerifier = verifier
+}
+
+// verifyAccountsOwnership verifies all account IDs belong to the tenant
+func (s *Service) verifyAccountsOwnership(ctx context.Context, tenantID uuid.UUID, accountIDs []uuid.UUID) error {
+	if s.accountVerifier == nil {
+		return nil // Skip if no verifier configured
+	}
+	for _, accountID := range accountIDs {
+		if err := s.accountVerifier.VerifyAccountOwnership(ctx, accountID, tenantID); err != nil {
+			return ErrAccountNotOwned
+		}
+	}
+	return nil
 }
 
 // GetByID retrieves a client by ID
@@ -94,6 +122,12 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, status *Status, 
 
 // Invite creates a new client invitation
 func (s *Service) Invite(ctx context.Context, tenantID uuid.UUID, invitedBy uuid.UUID, req *InviteRequest) (*InviteResponse, error) {
+	// CRITICAL: Verify all account IDs belong to the tenant before granting access
+	// This prevents cross-tenant access grants (IDOR vulnerability)
+	if err := s.verifyAccountsOwnership(ctx, tenantID, req.AccountIDs); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 
 	// Create client record
@@ -310,7 +344,14 @@ func (s *Service) Deactivate(ctx context.Context, clientID uuid.UUID) error {
 }
 
 // UpdateAccountAccess updates which accounts a client can access
-func (s *Service) UpdateAccountAccess(ctx context.Context, clientID uuid.UUID, accountIDs []uuid.UUID) error {
+// tenantID is required to verify account ownership before granting access
+func (s *Service) UpdateAccountAccess(ctx context.Context, tenantID, clientID uuid.UUID, accountIDs []uuid.UUID) error {
+	// CRITICAL: Verify all account IDs belong to the tenant before granting access
+	// This prevents cross-tenant access grants (IDOR vulnerability)
+	if err := s.verifyAccountsOwnership(ctx, tenantID, accountIDs); err != nil {
+		return err
+	}
+
 	// Remove all existing access
 	_, err := s.pool.Exec(ctx, `DELETE FROM client_account_access WHERE client_id = $1`, clientID)
 	if err != nil {

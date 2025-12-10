@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account"
-	"github.com/austrian-business-infrastructure/fo/internal/account/types"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/account/types"
+	"austrian-business-infrastructure/internal/fonws"
 	"github.com/google/uuid"
 )
 

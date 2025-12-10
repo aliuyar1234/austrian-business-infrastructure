@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/fb"
+	"austrian-business-infrastructure/internal/fb"
 	"github.com/spf13/cobra"
 )
 

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/austrian-business-infrastructure/fo/pkg/crypto"
+	"austrian-business-infrastructure/pkg/crypto"
 	"github.com/google/uuid"
 )
 

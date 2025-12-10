@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/pkg/cache"
+	"austrian-business-infrastructure/pkg/cache"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

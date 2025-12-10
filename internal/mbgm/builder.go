@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
+	"austrian-business-infrastructure/internal/elda"
 )
 
 // Builder generates mBGM XML documents for ELDA submission

@@ -3,10 +3,10 @@ package mcp
 import (
 	"errors"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
-	"github.com/austrian-business-infrastructure/fo/internal/fb"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
-	"github.com/austrian-business-infrastructure/fo/internal/sepa"
+	"austrian-business-infrastructure/internal/elda"
+	"austrian-business-infrastructure/internal/fb"
+	"austrian-business-infrastructure/internal/fonws"
+	"austrian-business-infrastructure/internal/sepa"
 )
 
 // handleUIDValidate validates an Austrian/EU VAT number

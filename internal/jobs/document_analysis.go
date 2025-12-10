@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/analysis"
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
+	"austrian-business-infrastructure/internal/analysis"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/job"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -178,9 +178,9 @@ func (h *DocumentAnalysisHandler) Handle(ctx context.Context, j *job.Job) (json.
 	result.ActionItems = len(analysisResult.ActionItems)
 	result.Suggestions = len(analysisResult.Suggestions)
 
-	// Update document status to "read" after successful analysis
+	// Update document status to "read" after successful analysis (with tenant isolation)
 	if h.docRepo != nil {
-		if err := h.docRepo.UpdateStatus(ctx, payload.DocumentID, document.StatusRead); err != nil {
+		if err := h.docRepo.UpdateStatus(ctx, payload.TenantID, payload.DocumentID, document.StatusRead); err != nil {
 			logger.Warn("failed to update document status after analysis",
 				"document_id", payload.DocumentID,
 				"error", err)

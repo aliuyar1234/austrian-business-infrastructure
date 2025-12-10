@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/austrian-business-infrastructure/fo/internal/erechnung"
+	"austrian-business-infrastructure/internal/erechnung"
 	"github.com/spf13/cobra"
 )
 

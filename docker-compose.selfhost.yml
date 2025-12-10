@@ -3,8 +3,8 @@
 # =============================================================================
 # Ready-to-run configuration for self-hosted deployments with:
 #   - Automatic TLS via Caddy (Let's Encrypt)
-#   - Auto database migrations on startup
-#   - Resource limits
+#   - Manual database migrations (run ./scripts/migrate.sh before first start)
+#   - Resource limits (enforced by docker-compose, not Swarm)
 #   - Security hardening
 #   - Backup-ready volume configuration
 #
@@ -12,11 +12,15 @@
 #   1. Copy .env.example to .env
 #   2. Generate secrets: ./scripts/generate-secrets.sh
 #   3. Set DOMAIN and ACME_EMAIL in .env
-#   4. Run: docker compose -f docker-compose.selfhost.yml up -d
+#   4. Run migrations: docker compose -f docker-compose.selfhost.yml run --rm server /app/migrate
+#   5. Run: docker compose -f docker-compose.selfhost.yml up -d
 #
 # Updates:
 #   docker compose -f docker-compose.selfhost.yml pull
+#   docker compose -f docker-compose.selfhost.yml run --rm server /app/migrate
 #   docker compose -f docker-compose.selfhost.yml up -d
+#
+# Image versions pinned for reproducibility - update periodically
 # =============================================================================
 
 version: '3.8'
@@ -24,7 +28,7 @@ version: '3.8'
 services:
   # Caddy - Automatic TLS reverse proxy
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.8.4-alpine  # Pinned version - check https://hub.docker.com/_/caddy for updates
     container_name: abp-caddy
     restart: unless-stopped
     ports:
@@ -40,14 +44,13 @@ services:
       - frontend
     depends_on:
       - server
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 128M
+    # Resource limits (docker-compose compatible, not just Swarm)
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 50
 
   postgres:
-    image: postgres:14-alpine
+    image: postgres:14.13-alpine  # Pinned version - check https://hub.docker.com/_/postgres for updates
     container_name: abp-postgres
     restart: unless-stopped
     environment:
@@ -63,16 +66,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          memory: 256M
+    # Resource limits (docker-compose compatible)
+    mem_limit: 1g
+    mem_reservation: 256m
+    cpus: 2.0
+    pids_limit: 200
 
   redis:
-    image: redis:6-alpine
+    image: redis:7.4.1-alpine  # Pinned version - check https://hub.docker.com/_/redis for updates
     container_name: abp-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -85,14 +86,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
+    # Resource limits (docker-compose compatible)
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 100
 
   server:
-    image: ghcr.io/austrian-business-infrastructure/fo:latest
+    # Pin to specific version or use local build
+    # For releases: ghcr.io/austrian-business-infrastructure/fo:v1.0.0
+    image: ${SERVER_IMAGE:-ghcr.io/austrian-business-infrastructure/fo:v1.0.0}
     build:
       context: .
       dockerfile: Dockerfile
@@ -108,8 +110,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       APP_URL: https://${DOMAIN}
       ALLOWED_ORIGINS: https://${DOMAIN}
-      # Auto-migrate on startup
-      AUTO_MIGRATE: "true"
+      # Migrations should be run manually before deployment
+      # Set to "true" only for initial setup or if you understand the risks
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,13 +127,11 @@ services:
       - /tmp:noexec,nosuid,size=64M
     security_opt:
       - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          memory: 256M
+    # Resource limits (docker-compose compatible)
+    mem_limit: 1g
+    mem_reservation: 256m
+    cpus: 2.0
+    pids_limit: 200
 
 networks:
   frontend:

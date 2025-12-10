@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/austrian-business-infrastructure/fo/internal/crypto"
+	"austrian-business-infrastructure/internal/crypto"
 )
 
 var (

@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/fb"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/fb"
 	"github.com/google/uuid"
 )
 

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account/types"
-	"github.com/austrian-business-infrastructure/fo/internal/api"
+	"austrian-business-infrastructure/internal/account/types"
+	"austrian-business-infrastructure/internal/api"
 	"github.com/google/uuid"
 )
 
@@ -208,11 +208,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to response format
+	// Note: Credentials are omitted from list view for performance (avoids N+1 queries)
+	// Use GET /api/v1/accounts/{id} to retrieve masked credentials for a single account
 	items := make([]*AccountResponse, 0, len(accounts))
 	for _, account := range accounts {
-		// Get masked credentials for list view
-		_, maskedCreds, _ := h.service.GetAccountWithMaskedCredentials(r.Context(), account.ID, tenantUUID)
-		items = append(items, h.toResponse(account, maskedCreds))
+		items = append(items, h.toResponse(account, nil))
 	}
 
 	api.JSONResponse(w, http.StatusOK, map[string]interface{}{

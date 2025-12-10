@@ -6,14 +6,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/approval"
-	"github.com/austrian-business-infrastructure/fo/internal/branding"
-	"github.com/austrian-business-infrastructure/fo/internal/client"
-	"github.com/austrian-business-infrastructure/fo/internal/clientgroup"
-	"github.com/austrian-business-infrastructure/fo/internal/message"
-	"github.com/austrian-business-infrastructure/fo/internal/share"
-	"github.com/austrian-business-infrastructure/fo/internal/task"
-	"github.com/austrian-business-infrastructure/fo/internal/upload"
+	"austrian-business-infrastructure/internal/approval"
+	"austrian-business-infrastructure/internal/branding"
+	"austrian-business-infrastructure/internal/client"
+	"austrian-business-infrastructure/internal/clientgroup"
+	"austrian-business-infrastructure/internal/message"
+	"austrian-business-infrastructure/internal/share"
+	"austrian-business-infrastructure/internal/task"
+	"austrian-business-infrastructure/internal/upload"
 )
 
 // TestClientTypes verifies client package types compile correctly

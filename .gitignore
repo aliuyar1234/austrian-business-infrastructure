@@ -48,25 +48,48 @@ coverage.html
 # Internal Development Files (NOT for GitHub)
 # ============================================
 
-# Development configuration files
+# AI assistant configuration
 .claude/
 CLAUDE.md
+.cursorrules
+.aider*
+.continue/
+CODEX*.md
+CODEX-*.md
 
 # Internal specifications and planning
 specs/
 .specify/
+.speckit/
+planning/
+roadmap/
 
-# Internal documentation and roadmaps
+# Internal documentation
 *-vision.md
 *-roadmap.md
 *-internal.md
 *-notes.md
+*-plan.md
+*-tasks.md
+*-backlog.md
+*-todo.md
+PLANNING.md
+ROADMAP.md
+BACKLOG.md
+TASKS.md
+TODO.md
 austrian-business-platform-*.md
 austrian-business-infrastructure-*.md
+
+# Session/conversation logs
+*.session.md
+*.conversation.md
+*.chat.md
 
 # Generated images / mockups
 Gemini_Generated_Image_*.png
 *.generated.png
+*.mockup.png
 
 # Temporary files
 *.tmp

@@ -1,10 +1,12 @@
+//go:build !windows
+
 package integration
 
 import (
 	"bytes"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/ocr"
+	"austrian-business-infrastructure/internal/ocr"
 )
 
 // T075: Integration tests for OCR service

@@ -3,7 +3,7 @@ package unit
 import (
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/mcp"
+	"austrian-business-infrastructure/internal/mcp"
 )
 
 // T123: Test MCP tool registration

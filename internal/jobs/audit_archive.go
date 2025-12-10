@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/audit"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
-	"github.com/austrian-business-infrastructure/fo/internal/storage"
+	"austrian-business-infrastructure/internal/audit"
+	"austrian-business-infrastructure/internal/job"
+	"austrian-business-infrastructure/internal/storage"
 	"github.com/google/uuid"
 )
 

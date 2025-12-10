@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/audit"
-	"github.com/austrian-business-infrastructure/fo/internal/crypto"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/audit"
+	"austrian-business-infrastructure/internal/crypto"
 	"github.com/google/uuid"
 )
 

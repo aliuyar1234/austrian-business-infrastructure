@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -16,18 +17,39 @@ const (
 	DefaultMaxDocumentSize = 50 * 1024 * 1024 // 50MB default max
 )
 
+// ErrAccountNotOwned is returned when the account doesn't belong to the tenant
+var ErrAccountNotOwned = errors.New("account does not belong to tenant")
+
+// AccountVerifier verifies account ownership for tenant isolation
+type AccountVerifier interface {
+	// VerifyAccountOwnership checks if an account belongs to the specified tenant
+	// Returns nil if the account exists and belongs to the tenant, error otherwise
+	VerifyAccountOwnership(ctx context.Context, accountID, tenantID uuid.UUID) error
+}
+
 // Service handles document business logic
 type Service struct {
-	repo           *Repository
-	storage        Storage
+	repo            *Repository
+	storage         Storage
+	accountVerifier AccountVerifier
 	maxDocumentSize int64
 }
 
 // NewService creates a new document service
 func NewService(repo *Repository, storage Storage) *Service {
 	return &Service{
-		repo:           repo,
-		storage:        storage,
+		repo:            repo,
+		storage:         storage,
+		maxDocumentSize: DefaultMaxDocumentSize,
+	}
+}
+
+// NewServiceWithAccountVerifier creates a document service with account ownership verification
+func NewServiceWithAccountVerifier(repo *Repository, storage Storage, verifier AccountVerifier) *Service {
+	return &Service{
+		repo:            repo,
+		storage:         storage,
+		accountVerifier: verifier,
 		maxDocumentSize: DefaultMaxDocumentSize,
 	}
 }
@@ -35,10 +57,15 @@ func NewService(repo *Repository, storage Storage) *Service {
 // NewServiceWithLimit creates a new document service with custom size limit
 func NewServiceWithLimit(repo *Repository, storage Storage, maxSize int64) *Service {
 	return &Service{
-		repo:           repo,
-		storage:        storage,
+		repo:            repo,
+		storage:         storage,
 		maxDocumentSize: maxSize,
 	}
+}
+
+// SetAccountVerifier sets the account verifier (for dependency injection after construction)
+func (s *Service) SetAccountVerifier(verifier AccountVerifier) {
+	s.accountVerifier = verifier
 }
 
 // CreateDocumentInput holds input for creating a document
@@ -56,6 +83,18 @@ type CreateDocumentInput struct {
 
 // Create stores a new document
 func (s *Service) Create(ctx context.Context, tenantID string, input *CreateDocumentInput) (*Document, error) {
+	// CRITICAL: Verify account belongs to the caller's tenant before creating document
+	// This prevents cross-tenant data writes (IDOR vulnerability)
+	if s.accountVerifier != nil {
+		tenantUUID, err := uuid.Parse(tenantID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid tenant ID: %w", err)
+		}
+		if err := s.accountVerifier.VerifyAccountOwnership(ctx, input.AccountID, tenantUUID); err != nil {
+			return nil, ErrAccountNotOwned
+		}
+	}
+
 	// Check if document already exists by external ID
 	existing, err := s.repo.GetByExternalID(ctx, input.AccountID, input.ExternalID)
 	if err == nil && existing != nil {
@@ -123,14 +162,14 @@ func (s *Service) Create(ctx context.Context, tenantID string, input *CreateDocu
 	return doc, nil
 }
 
-// GetByID retrieves a document by ID
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*Document, error) {
-	return s.repo.GetByID(ctx, id)
+// GetByID retrieves a document by ID with tenant isolation
+func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Document, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
 }
 
-// GetContent retrieves document content
-func (s *Service) GetContent(ctx context.Context, id uuid.UUID) (io.ReadCloser, *StorageInfo, error) {
-	doc, err := s.repo.GetByID(ctx, id)
+// GetContent retrieves document content with tenant isolation
+func (s *Service) GetContent(ctx context.Context, tenantID, id uuid.UUID) (io.ReadCloser, *StorageInfo, error) {
+	doc, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -138,9 +177,9 @@ func (s *Service) GetContent(ctx context.Context, id uuid.UUID) (io.ReadCloser, 
 	return s.storage.Get(ctx, doc.StoragePath)
 }
 
-// GetSignedURL returns a presigned URL for direct download
-func (s *Service) GetSignedURL(ctx context.Context, id uuid.UUID, expiry time.Duration) (string, error) {
-	doc, err := s.repo.GetByID(ctx, id)
+// GetSignedURL returns a presigned URL for direct download with tenant isolation
+func (s *Service) GetSignedURL(ctx context.Context, tenantID, id uuid.UUID, expiry time.Duration) (string, error) {
+	doc, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return "", err
 	}
@@ -157,33 +196,33 @@ func (s *Service) GetSignedURL(ctx context.Context, id uuid.UUID, expiry time.Du
 	return url, nil
 }
 
-// MarkAsRead marks a document as read
-func (s *Service) MarkAsRead(ctx context.Context, id uuid.UUID) error {
-	return s.repo.UpdateStatus(ctx, id, StatusRead)
+// MarkAsRead marks a document as read with tenant isolation
+func (s *Service) MarkAsRead(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.UpdateStatus(ctx, tenantID, id, StatusRead)
 }
 
-// UpdateStatus updates the status of a document
-func (s *Service) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
+// UpdateStatus updates the status of a document with tenant isolation
+func (s *Service) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error {
 	// Validate status
 	if status != StatusNew && status != StatusRead && status != StatusArchived {
 		return fmt.Errorf("invalid status: %s", status)
 	}
-	return s.repo.UpdateStatus(ctx, id, status)
+	return s.repo.UpdateStatus(ctx, tenantID, id, status)
 }
 
-// Archive archives a document
-func (s *Service) Archive(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Archive(ctx, id)
+// Archive archives a document with tenant isolation
+func (s *Service) Archive(ctx context.Context, tenantID, id uuid.UUID) error {
+	return s.repo.Archive(ctx, tenantID, id)
 }
 
-// BulkArchive archives multiple documents
-func (s *Service) BulkArchive(ctx context.Context, ids []uuid.UUID) (int, error) {
-	return s.repo.BulkArchive(ctx, ids)
+// BulkArchive archives multiple documents with tenant isolation
+func (s *Service) BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) (int, error) {
+	return s.repo.BulkArchive(ctx, tenantID, ids)
 }
 
-// Delete permanently removes a document
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	doc, err := s.repo.GetByID(ctx, id)
+// Delete permanently removes a document with tenant isolation
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	doc, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -194,7 +233,7 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	// Delete record
-	return s.repo.Delete(ctx, id)
+	return s.repo.Delete(ctx, tenantID, id)
 }
 
 // List returns documents matching the filter
@@ -213,23 +252,37 @@ func (s *Service) GetUnreadCounts(ctx context.Context, tenantID uuid.UUID) (map[
 }
 
 // GetExpired returns documents past their retention date
-func (s *Service) GetExpired(ctx context.Context, tenantID uuid.UUID) ([]*Document, error) {
-	return s.repo.GetExpired(ctx, tenantID)
+func (s *Service) GetExpired(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*Document, int, error) {
+	return s.repo.GetExpired(ctx, tenantID, limit, offset)
 }
 
-// DeleteExpired deletes all expired documents
+// DeleteExpired deletes all expired documents in batches
 func (s *Service) DeleteExpired(ctx context.Context, tenantID uuid.UUID) (int, error) {
-	expired, err := s.repo.GetExpired(ctx, tenantID)
-	if err != nil {
-		return 0, err
-	}
-
 	deleted := 0
-	for _, doc := range expired {
-		if err := s.Delete(ctx, doc.ID); err != nil {
-			continue // Log error but continue with others
+	batchSize := 100
+
+	// Process in batches to avoid memory issues with large numbers of expired docs
+	for {
+		expired, _, err := s.repo.GetExpired(ctx, tenantID, batchSize, 0)
+		if err != nil {
+			return deleted, err
 		}
-		deleted++
+
+		if len(expired) == 0 {
+			break
+		}
+
+		for _, doc := range expired {
+			if err := s.Delete(ctx, tenantID, doc.ID); err != nil {
+				continue // Log error but continue with others
+			}
+			deleted++
+		}
+
+		// If we got fewer than batch size, we're done
+		if len(expired) < batchSize {
+			break
+		}
 	}
 
 	return deleted, nil

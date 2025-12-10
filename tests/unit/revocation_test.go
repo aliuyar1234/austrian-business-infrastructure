@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
+	"austrian-business-infrastructure/internal/auth"
 )
 
 func setupTestRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {

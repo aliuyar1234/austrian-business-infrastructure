@@ -2,6 +2,7 @@ package document
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -9,6 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// Pagination limits
+const (
+	DefaultPageSize = 50
+	MaxPageSize     = 500
 )
 
 // Repository errors
@@ -22,6 +29,7 @@ var (
 // Document represents a stored document
 type Document struct {
 	ID             uuid.UUID
+	TenantID       uuid.UUID
 	AccountID      uuid.UUID
 	ExternalID     string
 	Type           string
@@ -108,23 +116,23 @@ func (r *Repository) Create(ctx context.Context, doc *Document) error {
 	return nil
 }
 
-// GetByID retrieves a document by ID
-func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*Document, error) {
+// GetByID retrieves a document by ID with tenant isolation
+func (r *Repository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*Document, error) {
 	query := `
-		SELECT d.id, d.account_id, d.external_id, d.type, d.title, d.sender,
+		SELECT d.id, d.account_id, d.tenant_id, d.external_id, d.type, d.title, d.sender,
 			d.received_at, d.content_hash, d.storage_path, d.file_size, d.mime_type,
 			d.status, d.archived_at, d.retention_until, d.metadata, d.created_at, d.updated_at,
 			a.name as account_name, a.type as account_type
 		FROM documents d
 		JOIN accounts a ON d.account_id = a.id
-		WHERE d.id = $1
+		WHERE d.id = $1 AND d.tenant_id = $2
 	`
 
 	doc := &Document{}
 	var metadata []byte
 
-	err := r.db.QueryRow(ctx, query, id).Scan(
-		&doc.ID, &doc.AccountID, &doc.ExternalID, &doc.Type, &doc.Title, &doc.Sender,
+	err := r.db.QueryRow(ctx, query, id, tenantID).Scan(
+		&doc.ID, &doc.AccountID, &doc.TenantID, &doc.ExternalID, &doc.Type, &doc.Title, &doc.Sender,
 		&doc.ReceivedAt, &doc.ContentHash, &doc.StoragePath, &doc.FileSize, &doc.MimeType,
 		&doc.Status, &doc.ArchivedAt, &doc.RetentionUntil, &metadata, &doc.CreatedAt, &doc.UpdatedAt,
 		&doc.AccountName, &doc.AccountType,
@@ -271,8 +279,16 @@ func (r *Repository) List(ctx context.Context, filter *DocumentFilter) ([]*Docum
 	}
 
 	if filter.Search != "" {
-		conditions += fmt.Sprintf(" AND (d.title ILIKE $%d OR d.sender ILIKE $%d)", argNum, argNum)
-		args = append(args, "%"+filter.Search+"%")
+		// Use full-text search with GIN index for performance
+		// Falls back to ILIKE for single-character searches (FTS minimum is usually 2 chars)
+		if len(filter.Search) >= 2 {
+			conditions += fmt.Sprintf(" AND to_tsvector('german', COALESCE(d.title, '') || ' ' || COALESCE(d.sender, '')) @@ plainto_tsquery('german', $%d)", argNum)
+			args = append(args, filter.Search)
+		} else {
+			// Fallback for very short searches
+			conditions += fmt.Sprintf(" AND (d.title ILIKE $%d OR d.sender ILIKE $%d)", argNum, argNum)
+			args = append(args, "%"+filter.Search+"%")
+		}
 		argNum++
 	}
 
@@ -305,10 +321,16 @@ func (r *Repository) List(ctx context.Context, filter *DocumentFilter) ([]*Docum
 
 	baseQuery += conditions + fmt.Sprintf(" ORDER BY %s %s", sortColumn, sortDir)
 
-	// Apply pagination
-	if filter.Limit > 0 {
-		baseQuery += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	// Apply pagination with enforced limits
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = DefaultPageSize
 	}
+	if limit > MaxPageSize {
+		limit = MaxPageSize
+	}
+	baseQuery += fmt.Sprintf(" LIMIT %d", limit)
+
 	if filter.Offset > 0 {
 		baseQuery += fmt.Sprintf(" OFFSET %d", filter.Offset)
 	}
@@ -342,11 +364,11 @@ func (r *Repository) List(ctx context.Context, filter *DocumentFilter) ([]*Docum
 	return documents, totalCount, nil
 }
 
-// UpdateStatus updates the status of a document
-func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status string) error {
-	query := `UPDATE documents SET status = $1, updated_at = NOW() WHERE id = $2`
+// UpdateStatus updates the status of a document with tenant isolation
+func (r *Repository) UpdateStatus(ctx context.Context, tenantID, id uuid.UUID, status string) error {
+	query := `UPDATE documents SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`
 
-	result, err := r.db.Exec(ctx, query, status, id)
+	result, err := r.db.Exec(ctx, query, status, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("update document status: %w", err)
 	}
@@ -358,11 +380,11 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status stri
 	return nil
 }
 
-// Archive marks a document as archived
-func (r *Repository) Archive(ctx context.Context, id uuid.UUID) error {
-	query := `UPDATE documents SET status = 'archived', archived_at = NOW(), updated_at = NOW() WHERE id = $1`
+// Archive marks a document as archived with tenant isolation
+func (r *Repository) Archive(ctx context.Context, tenantID, id uuid.UUID) error {
+	query := `UPDATE documents SET status = 'archived', archived_at = NOW(), updated_at = NOW() WHERE id = $1 AND tenant_id = $2`
 
-	result, err := r.db.Exec(ctx, query, id)
+	result, err := r.db.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("archive document: %w", err)
 	}
@@ -374,11 +396,11 @@ func (r *Repository) Archive(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// BulkArchive archives multiple documents
-func (r *Repository) BulkArchive(ctx context.Context, ids []uuid.UUID) (int, error) {
-	query := `UPDATE documents SET status = 'archived', archived_at = NOW(), updated_at = NOW() WHERE id = ANY($1)`
+// BulkArchive archives multiple documents with tenant isolation
+func (r *Repository) BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) (int, error) {
+	query := `UPDATE documents SET status = 'archived', archived_at = NOW(), updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2`
 
-	result, err := r.db.Exec(ctx, query, ids)
+	result, err := r.db.Exec(ctx, query, ids, tenantID)
 	if err != nil {
 		return 0, fmt.Errorf("bulk archive documents: %w", err)
 	}
@@ -386,11 +408,11 @@ func (r *Repository) BulkArchive(ctx context.Context, ids []uuid.UUID) (int, err
 	return int(result.RowsAffected()), nil
 }
 
-// Delete permanently deletes a document
-func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM documents WHERE id = $1`
+// Delete permanently deletes a document with tenant isolation
+func (r *Repository) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+	query := `DELETE FROM documents WHERE id = $1 AND tenant_id = $2`
 
-	result, err := r.db.Exec(ctx, query, id)
+	result, err := r.db.Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("delete document: %w", err)
 	}
@@ -403,7 +425,29 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetExpired returns documents past their retention date
-func (r *Repository) GetExpired(ctx context.Context, tenantID uuid.UUID) ([]*Document, error) {
+// MaxExpiredLimit is the maximum number of expired documents to return
+const MaxExpiredLimit = 100
+
+func (r *Repository) GetExpired(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*Document, int, error) {
+	// Enforce limits
+	if limit <= 0 || limit > MaxExpiredLimit {
+		limit = MaxExpiredLimit
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Get total count first
+	countQuery := `
+		SELECT COUNT(*) FROM documents d
+		JOIN accounts a ON d.account_id = a.id
+		WHERE a.tenant_id = $1 AND d.retention_until < NOW()
+	`
+	var total int
+	if err := r.db.QueryRow(ctx, countQuery, tenantID).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count expired documents: %w", err)
+	}
+
 	query := `
 		SELECT d.id, d.account_id, d.external_id, d.type, d.title, d.sender,
 			d.received_at, d.content_hash, d.storage_path, d.file_size, d.mime_type,
@@ -412,11 +456,12 @@ func (r *Repository) GetExpired(ctx context.Context, tenantID uuid.UUID) ([]*Doc
 		JOIN accounts a ON d.account_id = a.id
 		WHERE a.tenant_id = $1 AND d.retention_until < NOW()
 		ORDER BY d.retention_until ASC
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.Query(ctx, query, tenantID)
+	rows, err := r.db.Query(ctx, query, tenantID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("get expired documents: %w", err)
+		return nil, 0, fmt.Errorf("get expired documents: %w", err)
 	}
 	defer rows.Close()
 
@@ -431,14 +476,14 @@ func (r *Repository) GetExpired(ctx context.Context, tenantID uuid.UUID) ([]*Doc
 			&doc.Status, &doc.ArchivedAt, &doc.RetentionUntil, &metadata, &doc.CreatedAt, &doc.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("scan expired document: %w", err)
+			return nil, 0, fmt.Errorf("scan expired document: %w", err)
 		}
 
 		doc.Metadata = parseMetadata(metadata)
 		documents = append(documents, doc)
 	}
 
-	return documents, nil
+	return documents, total, nil
 }
 
 // GetStats returns document statistics for a tenant
@@ -580,9 +625,19 @@ func parseMetadata(data []byte) map[string]interface{} {
 	if len(data) == 0 {
 		return make(map[string]interface{})
 	}
-	// Simple JSON parsing would go here
-	// For now, return empty map
-	return make(map[string]interface{})
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		// Return empty map on parse error rather than failing
+		// This prevents corrupt metadata from breaking document reads
+		return make(map[string]interface{})
+	}
+
+	if result == nil {
+		return make(map[string]interface{})
+	}
+
+	return result
 }
 
 // Document status constants

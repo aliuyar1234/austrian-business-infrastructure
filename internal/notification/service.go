@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/email"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/email"
 	"github.com/google/uuid"
 )
 
@@ -179,8 +179,8 @@ func (s *Service) ProcessPendingNotifications(ctx context.Context, batchSize int
 
 // sendNotification sends a single notification
 func (s *Service) sendNotification(ctx context.Context, item *NotificationQueueItem) error {
-	// Get document details
-	doc, err := s.docRepo.GetByID(ctx, item.DocumentID)
+	// Get document details with tenant isolation
+	doc, err := s.docRepo.GetByID(ctx, item.TenantID, item.DocumentID)
 	if err != nil {
 		return fmt.Errorf("get document: %w", err)
 	}
@@ -220,10 +220,10 @@ func (s *Service) SendDigest(ctx context.Context, userID, tenantID uuid.UUID, us
 		return nil // No new documents, skip digest
 	}
 
-	// Get document details for each item
+	// Get document details for each item with tenant isolation
 	var docs []DigestDocumentData
 	for _, item := range items {
-		doc, err := s.docRepo.GetByID(ctx, item.DocumentID)
+		doc, err := s.docRepo.GetByID(ctx, tenantID, item.DocumentID)
 		if err != nil {
 			continue // Skip documents that can't be retrieved
 		}

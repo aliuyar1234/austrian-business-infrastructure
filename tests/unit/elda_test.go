@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
+	"austrian-business-infrastructure/internal/elda"
 )
 
 // T046: Test ELDA Anmeldung XML generation

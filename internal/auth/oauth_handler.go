@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/tenant"
-	"github.com/austrian-business-infrastructure/fo/internal/user"
-	"github.com/austrian-business-infrastructure/fo/pkg/cache"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/tenant"
+	"austrian-business-infrastructure/internal/user"
+	"austrian-business-infrastructure/pkg/cache"
 )
 
 // OAuthHandler handles OAuth authentication HTTP requests

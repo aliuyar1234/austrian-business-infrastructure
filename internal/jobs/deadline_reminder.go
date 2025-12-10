@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/analysis"
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/email"
-	"github.com/austrian-business-infrastructure/fo/internal/job"
+	"austrian-business-infrastructure/internal/analysis"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/email"
+	"austrian-business-infrastructure/internal/job"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

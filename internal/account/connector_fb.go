@@ -3,7 +3,7 @@ package account
 import (
 	"context"
 
-	"github.com/austrian-business-infrastructure/fo/internal/account/types"
+	"austrian-business-infrastructure/internal/account/types"
 )
 
 // FirmenbuchConnector tests connections to Firmenbuch

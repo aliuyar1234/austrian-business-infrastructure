@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/job"
+	"austrian-business-infrastructure/internal/job"
 	"github.com/google/uuid"
 )
 

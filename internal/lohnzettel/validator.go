@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
-	"github.com/austrian-business-infrastructure/fo/internal/mbgm"
+	"austrian-business-infrastructure/internal/elda"
+	"austrian-business-infrastructure/internal/mbgm"
 )
 
 // ValidationResult contains the result of validating a Lohnzettel

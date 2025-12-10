@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { ArrowLeft, FileText, CheckCircle, XCircle } from 'lucide-svelte';
+	import { ArrowLeft, FileText, CheckCircle, XCircle, PenTool, Shield } from 'lucide-svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -13,7 +13,9 @@
 	let error = '';
 	let processing = false;
 	let showRejectModal = false;
+	let showSignModal = false;
 	let rejectComment = '';
+	let signingInProgress = false;
 
 	onMount(async () => {
 		const id = $page.params.id;
@@ -54,6 +56,29 @@
 			error = e.message || 'Ablehnung fehlgeschlagen';
 		} finally {
 			processing = false;
+		}
+	}
+
+	async function handleApproveWithSignature() {
+		signingInProgress = true;
+		error = '';
+
+		try {
+			// Create a signature request for this approval
+			// The backend will create a signing token and redirect URL
+			const result = await api.createApprovalSignature(approval.id);
+
+			if (result.signing_url) {
+				// Redirect to the signing page
+				window.location.href = result.signing_url;
+			} else {
+				error = 'Keine Signatur-URL erhalten';
+			}
+		} catch (e: any) {
+			error = e.message || 'Fehler beim Starten der Signatur';
+		} finally {
+			signingInProgress = false;
+			showSignModal = false;
 		}
 	}
 
@@ -137,16 +162,43 @@
 			</div>
 
 			{#if approval.status === 'pending'}
+				<!-- Signature option if document requires signature -->
+				{#if approval.requires_signature}
+					<div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+						<div class="flex items-start gap-3">
+							<Shield class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+							<div>
+								<p class="font-medium text-blue-900">Qualifizierte elektronische Signatur erforderlich</p>
+								<p class="text-sm text-blue-700 mt-1">
+									Dieses Dokument erfordert eine rechtsgueltige digitale Signatur mit ID Austria.
+								</p>
+							</div>
+						</div>
+					</div>
+				{/if}
+
 				<div class="flex gap-4">
-					<Button
-						class="flex-1"
-						variant="primary"
-						loading={processing}
-						on:click={handleApprove}
-					>
-						<CheckCircle class="w-4 h-4 mr-2" />
-						Freigeben
-					</Button>
+					{#if approval.requires_signature}
+						<Button
+							class="flex-1"
+							variant="primary"
+							loading={signingInProgress}
+							on:click={() => (showSignModal = true)}
+						>
+							<PenTool class="w-4 h-4 mr-2" />
+							Mit ID Austria signieren
+						</Button>
+					{:else}
+						<Button
+							class="flex-1"
+							variant="primary"
+							loading={processing}
+							on:click={handleApprove}
+						>
+							<CheckCircle class="w-4 h-4 mr-2" />
+							Freigeben
+						</Button>
+					{/if}
 					<Button
 						class="flex-1"
 						variant="danger"
@@ -213,6 +265,63 @@
 					on:click={handleReject}
 				>
 					Ablehnen
+				</Button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Sign Modal -->
+{#if showSignModal}
+	<div
+		class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+		on:click={() => (showSignModal = false)}
+		on:keydown={(e) => e.key === 'Escape' && (showSignModal = false)}
+		role="dialog"
+	>
+		<div
+			class="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+			on:click|stopPropagation
+			role="document"
+		>
+			<div class="text-center mb-6">
+				<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+					<PenTool class="w-8 h-8 text-blue-600" />
+				</div>
+				<h2 class="text-xl font-bold text-gray-900">Mit ID Austria signieren</h2>
+			</div>
+
+			<p class="text-gray-600 mb-4">
+				Sie werden zur sicheren Authentifizierung mit ID Austria weitergeleitet.
+				Nach erfolgreicher Authentifizierung wird das Dokument mit Ihrer qualifizierten
+				elektronischen Signatur versehen.
+			</p>
+
+			<div class="bg-gray-50 rounded-lg p-4 mb-6">
+				<p class="text-sm text-gray-600">
+					<strong>Dokument:</strong> {approval?.document_title}
+				</p>
+				<p class="text-xs text-gray-500 mt-2">
+					Die Signatur entspricht den eIDAS-Anforderungen fuer qualifizierte elektronische Signaturen (QES).
+				</p>
+			</div>
+
+			<div class="flex gap-3">
+				<Button
+					variant="outline"
+					class="flex-1"
+					on:click={() => (showSignModal = false)}
+				>
+					Abbrechen
+				</Button>
+				<Button
+					variant="primary"
+					class="flex-1"
+					loading={signingInProgress}
+					on:click={handleApproveWithSignature}
+				>
+					<Shield class="w-4 h-4 mr-2" />
+					Weiter zu ID Austria
 				</Button>
 			</div>
 		</div>

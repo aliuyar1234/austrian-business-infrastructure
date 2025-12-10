@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
+	"austrian-business-infrastructure/internal/auth"
 )
 
 // TestJWT_GenerateTokenPair tests ES256 token pair generation

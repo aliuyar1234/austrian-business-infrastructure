@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"austrian-business-infrastructure/internal/security"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -49,6 +51,10 @@ func NewPool(ctx context.Context, cfg *PostgresConfig) (*Pool, error) {
 	poolConfig.MinConns = cfg.MinConns
 	poolConfig.MaxConnLifetime = cfg.MaxConnLifetime
 	poolConfig.MaxConnIdleTime = cfg.MaxConnIdleTime
+
+	// Configure RLS middleware for automatic tenant context setting
+	// This ensures app.tenant_id is set on each connection when tenant ID is in context
+	security.ConfigurePoolWithRLS(poolConfig)
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {

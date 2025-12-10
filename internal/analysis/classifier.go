@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/austrian-business-infrastructure/fo/internal/ai"
+	"austrian-business-infrastructure/internal/ai"
 )
 
 // DocumentType represents the type of document

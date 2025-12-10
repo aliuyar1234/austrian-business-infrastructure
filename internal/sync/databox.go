@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/document"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/document"
+	"austrian-business-infrastructure/internal/fonws"
 	"github.com/google/uuid"
 )
 

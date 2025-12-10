@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/austrian-business-infrastructure/fo/pkg/crypto"
+	"austrian-business-infrastructure/pkg/crypto"
 )
 
 // Re-export password functions from crypto package for backwards compatibility

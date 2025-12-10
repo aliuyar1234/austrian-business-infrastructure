@@ -10,9 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/email"
-	"github.com/austrian-business-infrastructure/fo/internal/tenant"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/email"
+	"austrian-business-infrastructure/internal/tenant"
 )
 
 // Handler handles client-related HTTP requests
@@ -310,7 +310,11 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	// Update account access if provided
 	if req.AccountIDs != nil {
-		if err := h.service.UpdateAccountAccess(ctx, clientID, req.AccountIDs); err != nil {
+		if err := h.service.UpdateAccountAccess(ctx, tenantID, clientID, req.AccountIDs); err != nil {
+			if errors.Is(err, ErrAccountNotOwned) {
+				http.Error(w, "invalid account ID", http.StatusBadRequest)
+				return
+			}
 			http.Error(w, "failed to update account access", http.StatusInternalServerError)
 			return
 		}

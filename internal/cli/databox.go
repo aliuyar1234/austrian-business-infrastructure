@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/config"
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
-	"github.com/austrian-business-infrastructure/fo/internal/store"
+	"austrian-business-infrastructure/internal/config"
+	"austrian-business-infrastructure/internal/fonws"
+	"austrian-business-infrastructure/internal/store"
 	"github.com/spf13/cobra"
 )
 

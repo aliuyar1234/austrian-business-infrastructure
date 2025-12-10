@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
-	"github.com/austrian-business-infrastructure/fo/internal/crypto"
+	"austrian-business-infrastructure/internal/auth"
+	"austrian-business-infrastructure/internal/crypto"
 	"github.com/pquerna/otp/totp"
 )
 

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/fonws"
+	"austrian-business-infrastructure/internal/fonws"
 )
 
 // T066: Test parallel account processing with errgroup

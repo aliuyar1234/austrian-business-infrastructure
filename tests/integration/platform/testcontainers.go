@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,20 +90,22 @@ func (e *TestEnvironment) Cleanup() {
 
 // Reset clears all test data between tests
 func (e *TestEnvironment) Reset(ctx context.Context) error {
-	// Clear tables in reverse dependency order
-	tables := []string{
-		"audit_logs",
-		"sessions",
-		"api_keys",
-		"invitations",
-		"users",
-		"tenants",
-	}
-
-	for _, table := range tables {
-		if _, err := e.DB.Exec(ctx, fmt.Sprintf("TRUNCATE TABLE %s CASCADE", table)); err != nil {
-			return fmt.Errorf("failed to truncate %s: %w", table, err)
-		}
+	// Clear all tables with data (excluding schema_migrations)
+	// Uses CASCADE to handle foreign key dependencies automatically
+	_, err := e.DB.Exec(ctx, `
+		DO $$
+		DECLARE
+			r RECORD;
+		BEGIN
+			-- Disable triggers temporarily for faster truncation
+			FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'schema_migrations')
+			LOOP
+				EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE';
+			END LOOP;
+		END $$;
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to truncate tables: %w", err)
 	}
 
 	// Clear Redis
@@ -111,109 +116,107 @@ func (e *TestEnvironment) Reset(ctx context.Context) error {
 	return nil
 }
 
-// runMigrations applies database migrations
+// runMigrations applies database migrations from the migrations/ folder
+// This ensures integration tests exercise the same schema as production,
+// including RLS policies, triggers, and constraints
 func (e *TestEnvironment) runMigrations(ctx context.Context) error {
-	// Create tables if they don't exist
-	schema := `
-	-- Tenants
-	CREATE TABLE IF NOT EXISTS tenants (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		name VARCHAR(255) NOT NULL,
-		slug VARCHAR(100) UNIQUE NOT NULL,
-		settings JSONB DEFAULT '{}',
-		status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deleted')),
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-	);
+	// Find migrations directory - try multiple paths for different test contexts
+	migrationsDir := findMigrationsDir()
+	if migrationsDir == "" {
+		return fmt.Errorf("migrations directory not found")
+	}
 
-	-- Users
-	CREATE TABLE IF NOT EXISTS users (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-		email VARCHAR(255) NOT NULL,
-		password_hash VARCHAR(255),
-		name VARCHAR(255),
-		role VARCHAR(20) NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
-		status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
-		email_verified BOOLEAN DEFAULT FALSE,
-		totp_secret VARCHAR(255),
-		totp_enabled BOOLEAN DEFAULT FALSE,
-		oauth_provider VARCHAR(50),
-		oauth_id VARCHAR(255),
-		last_login_at TIMESTAMPTZ,
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(tenant_id, email)
-	);
+	// Read all migration files
+	files, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return fmt.Errorf("read migrations dir: %w", err)
+	}
 
-	-- Sessions
-	CREATE TABLE IF NOT EXISTS sessions (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		refresh_token_hash VARCHAR(255) NOT NULL,
-		user_agent TEXT,
-		ip_address VARCHAR(45),
-		expires_at TIMESTAMPTZ NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-	);
+	// Filter and sort SQL files
+	var migrations []string
+	for _, f := range files {
+		if !f.IsDir() && strings.HasSuffix(f.Name(), ".sql") {
+			migrations = append(migrations, f.Name())
+		}
+	}
+	sort.Strings(migrations) // Ensures 001_, 002_, etc. order
 
-	-- API Keys
-	CREATE TABLE IF NOT EXISTS api_keys (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-		name VARCHAR(255) NOT NULL,
-		key_hash VARCHAR(255) NOT NULL,
-		key_prefix VARCHAR(12) NOT NULL,
-		scopes TEXT[] DEFAULT '{}',
-		last_used_at TIMESTAMPTZ,
-		expires_at TIMESTAMPTZ,
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-	);
+	// Create schema_migrations table to track applied migrations
+	_, err = e.DB.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			version VARCHAR(255) PRIMARY KEY,
+			applied_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("create schema_migrations table: %w", err)
+	}
 
-	-- Invitations
-	CREATE TABLE IF NOT EXISTS invitations (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-		email VARCHAR(255) NOT NULL,
-		role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'member', 'viewer')),
-		token_hash VARCHAR(255) NOT NULL,
-		invited_by UUID NOT NULL REFERENCES users(id),
-		status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
-		expires_at TIMESTAMPTZ NOT NULL,
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-	);
+	// Apply each migration
+	for _, migration := range migrations {
+		// Check if already applied
+		var exists bool
+		err := e.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1)", migration).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("check migration %s: %w", migration, err)
+		}
+		if exists {
+			continue
+		}
 
-	-- Audit Logs
-	CREATE TABLE IF NOT EXISTS audit_logs (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
-		user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-		action VARCHAR(100) NOT NULL,
-		resource_type VARCHAR(100),
-		resource_id UUID,
-		details JSONB DEFAULT '{}',
-		ip_address VARCHAR(45),
-		user_agent TEXT,
-		created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-	);
+		// Read migration file
+		content, err := os.ReadFile(filepath.Join(migrationsDir, migration))
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", migration, err)
+		}
 
-	-- Indexes
-	CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
-	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-	CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-	CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-	CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
-	CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix);
-	CREATE INDEX IF NOT EXISTS idx_invitations_tenant_id ON invitations(tenant_id);
-	CREATE INDEX IF NOT EXISTS idx_invitations_token_hash ON invitations(token_hash);
-	CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
-	CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
-	CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
-	`
+		// Execute migration
+		_, err = e.DB.Exec(ctx, string(content))
+		if err != nil {
+			return fmt.Errorf("execute migration %s: %w", migration, err)
+		}
 
-	_, err := e.DB.Exec(ctx, schema)
-	return err
+		// Record migration
+		_, err = e.DB.Exec(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", migration)
+		if err != nil {
+			return fmt.Errorf("record migration %s: %w", migration, err)
+		}
+	}
+
+	return nil
+}
+
+// findMigrationsDir locates the migrations directory from various test contexts
+func findMigrationsDir() string {
+	// Try common paths relative to different test execution contexts
+	candidates := []string{
+		"migrations",                          // From repo root
+		"../../../migrations",                 // From tests/integration/platform/
+		"../../migrations",                    // From tests/integration/
+		os.Getenv("MIGRATIONS_DIR"),           // Explicit env var
+	}
+
+	for _, dir := range candidates {
+		if dir == "" {
+			continue
+		}
+		if _, err := os.Stat(dir); err == nil {
+			absPath, _ := filepath.Abs(dir)
+			return absPath
+		}
+	}
+
+	// Try to find from current working directory
+	cwd, _ := os.Getwd()
+	for i := 0; i < 5; i++ { // Walk up to 5 levels
+		candidate := filepath.Join(cwd, "migrations")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+		cwd = filepath.Dir(cwd)
+	}
+
+	return ""
 }
 
 func getEnvOrDefault(key, defaultVal string) string {

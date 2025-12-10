@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
-	"github.com/austrian-business-infrastructure/fo/internal/api"
-	"github.com/austrian-business-infrastructure/fo/internal/auth"
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/auth"
 )
 
 // Handler handles WebSocket HTTP requests

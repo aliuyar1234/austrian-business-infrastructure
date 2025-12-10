@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/austrian-business-infrastructure/fo/internal/crypto"
+	"austrian-business-infrastructure/internal/crypto"
 	"github.com/google/uuid"
 )
 

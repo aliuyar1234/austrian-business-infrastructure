@@ -12,8 +12,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/client"
-	"github.com/austrian-business-infrastructure/fo/internal/tenant"
+	"austrian-business-infrastructure/internal/client"
+	"austrian-business-infrastructure/internal/tenant"
 )
 
 // sanitizeFilename removes dangerous characters from filenames for Content-Disposition

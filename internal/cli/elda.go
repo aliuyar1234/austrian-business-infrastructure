@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/austrian-business-infrastructure/fo/internal/config"
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
-	"github.com/austrian-business-infrastructure/fo/internal/store"
+	"austrian-business-infrastructure/internal/config"
+	"austrian-business-infrastructure/internal/elda"
+	"austrian-business-infrastructure/internal/store"
 	"github.com/spf13/cobra"
 )
 

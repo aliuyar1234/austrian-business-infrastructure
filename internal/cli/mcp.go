@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/austrian-business-infrastructure/fo/internal/mcp"
+	"austrian-business-infrastructure/internal/mcp"
 	"github.com/spf13/cobra"
 )
 

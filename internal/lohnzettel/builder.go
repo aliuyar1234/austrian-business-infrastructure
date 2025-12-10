@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/austrian-business-infrastructure/fo/internal/elda"
+	"austrian-business-infrastructure/internal/elda"
 )
 
 // Builder generates L16 XML documents for ELDA submission
