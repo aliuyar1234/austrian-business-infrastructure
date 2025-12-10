@@ -12,17 +12,36 @@
 
 ---
 
-## Why this exists
+## Problems this solves
 
-Austrian government services have APIs — FinanzOnline, ELDA, Firmenbuch. They work. But:
+**Steuerberater / Buchhaltung**
+> "Ich manage 30 FinanzOnline Accounts für unsere Tochterfirmen. Jeden Tag einloggen, 2FA für jeden einzeln, nur um zu schauen ob neue Bescheide da sind. Dauert Stunden."
 
-- **SOAP/XML** — Nobody wants to write SOAP clients in 2025
-- **Zero documentation** — Good luck finding examples
-- **No open-source tooling** — Search GitHub. Nothing exists.
+→ `./fo databox --all` — 30 Accounts in 12 Sekunden.
 
-Every Austrian company needing these integrations builds from scratch. Exposed to the same XML, the same cryptic error codes, the same WSDL files from 2008.
+**HR-Abteilung**
+> "Mitarbeiter anmelden, abmelden, Lohnzettel einreichen — alles manuell über ELDA. Bei 50+ Mitarbeitern pro Monat wird das zur Vollzeitbeschäftigung."
 
-**This is the first open-source solution.**
+→ `./fo elda anmeldung --file employees.json` — Batch processing.
+
+**Unternehmen mit Compliance-Anforderungen**
+> "Für Due Diligence brauchen wir regelmäßig Firmenbuchauszüge. Jedes Mal manuell suchen und runterladen."
+
+→ `./fo fb search "GmbH" --extract` — Automatisiert, überwacht, benachrichtigt.
+
+**Finance / Treasury**
+> "SEPA-Zahlungsdateien händisch zusammenbauen ist fehleranfällig. Kontoauszüge abgleichen noch schlimmer."
+
+→ `./fo sepa pain001 payments.csv` — Generiert, validiert, fertig.
+
+**Geschäftsführung**
+> "Welche Förderungen gibt es für uns? AWS, FFG, EU? Keine Ahnung wo anfangen."
+
+→ 74 österreichische Förderprogramme durchsuchbar, mit Eligibility-Matching.
+
+---
+
+**Das ist die erste Open-Source Lösung für österreichische Behörden-APIs.**
 
 ---
 
