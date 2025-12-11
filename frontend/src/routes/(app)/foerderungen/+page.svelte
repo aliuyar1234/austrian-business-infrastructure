@@ -49,7 +49,7 @@
 			if (selectedTopic) params.set('topic', selectedTopic);
 			params.set('status', 'active');
 
-			const response = await api.get<FoerderungenListResponse>(`/foerderungen?${params}`);
+			const response = await api.get<FoerderungenListResponse>(`/api/v1/foerderungen?${params}`);
 			foerderungen = response.foerderungen || [];
 			total = response.total || 0;
 		} catch (e) {

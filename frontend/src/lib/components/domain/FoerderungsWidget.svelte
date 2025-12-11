@@ -29,9 +29,9 @@
 		loading = true;
 		try {
 			const [matchesRes, statsRes, notifRes] = await Promise.all([
-				api.get<MatchesResponse>('/foerderungen/matches?limit=3').catch(() => ({ matches: [] })),
-				api.get<AntragStats>('/antraege/stats').catch(() => null),
-				api.get<NotificationListResponse>('/monitor/notifications?limit=3').catch(() => ({ notifications: [] }))
+				api.get<MatchesResponse>('/api/v1/foerderungen/matches?limit=3').catch(() => ({ matches: [] })),
+				api.get<AntragStats>('/api/v1/antraege/stats').catch(() => null),
+				api.get<NotificationListResponse>('/api/v1/monitor/notifications?limit=3').catch(() => ({ notifications: [] }))
 			]);
 
 			matches = matchesRes?.matches || [];

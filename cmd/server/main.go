@@ -10,14 +10,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"austrian-business-infrastructure/internal/account"
+	"austrian-business-infrastructure/internal/antrag"
 	"austrian-business-infrastructure/internal/api"
 	"austrian-business-infrastructure/internal/auth"
 	"austrian-business-infrastructure/internal/config"
 	"austrian-business-infrastructure/internal/document"
 	"austrian-business-infrastructure/internal/firmenbuch"
+	"austrian-business-infrastructure/internal/foerderung"
 	"austrian-business-infrastructure/internal/invoice"
+	"austrian-business-infrastructure/internal/matcher"
+	"austrian-business-infrastructure/internal/monitor"
 	"austrian-business-infrastructure/internal/payment"
+	"austrian-business-infrastructure/internal/profil"
 	"austrian-business-infrastructure/internal/tenant"
 	"austrian-business-infrastructure/internal/uid"
 	"austrian-business-infrastructure/internal/user"
@@ -108,6 +115,14 @@ func run() error {
 	firmenbuchRepo := firmenbuch.NewRepository(db.Pool)
 	uidRepo := uid.NewRepository(db.Pool)
 
+	// Förderung-related repositories
+	foerderungRepo := foerderung.NewRepository(db.Pool)
+	antragRepo := antrag.NewRepository(db.Pool)
+	profilRepo := profil.NewRepository(db.Pool)
+	monitorRepo := monitor.NewRepository(db.Pool)
+	monitorNotifRepo := monitor.NewNotificationRepository(db.Pool)
+	matcherSearchRepo := matcher.NewSearchRepository(db.Pool)
+
 	// Initialize services
 	userService := user.NewService(userRepo)
 	tenantService := tenant.NewService(db.Pool, tenantRepo, userRepo)
@@ -123,6 +138,12 @@ func run() error {
 	paymentService := payment.NewService(paymentRepo)
 	firmenbuchService := firmenbuch.NewService(firmenbuchRepo, nil) // client nil for now
 	uidService := uid.NewService(uidRepo, accountService)
+
+	// Förderung-related services
+	antragService := antrag.NewService(antragRepo)
+	profilService := profil.NewService(profilRepo)
+	monitorService := monitor.NewService(monitorRepo, monitorNotifRepo)
+	matcherService := matcher.NewService(foerderungRepo, matcherSearchRepo, nil, nil) // nil LLM client for now
 
 	// Initialize document storage and service with IDOR protection
 	docStorage, err := document.NewStorage(&document.StorageConfig{
@@ -164,6 +185,13 @@ func run() error {
 	uidHandler := uid.NewHandler(uidService)
 	docHandler := document.NewHandler(docService)
 
+	// Förderung-related handlers
+	foerderungHandler := foerderung.NewHandler(foerderungRepo)
+	antragHandler := antrag.NewHandler(antragService)
+	profilHandler := profil.NewHandler(profilService, nil) // nil deriveService for now
+	monitorHandler := monitor.NewHandler(monitorService)
+	matcherHandler := matcher.NewHandler(matcherService, profilRepo)
+
 	// Auth middleware
 	authMiddleware := auth.NewAuthMiddleware(jwtManager)
 	requireAuth := authMiddleware.RequireAuth
@@ -171,7 +199,7 @@ func run() error {
 
 	// Register routes
 	// Auth routes (no auth required for login/register)
-	authHandler.RegisterRoutes(router)
+	authHandler.RegisterRoutes(router, requireAuth)
 
 	// Protected routes
 	accountHandler.RegisterRoutes(router, requireAuth, requireAdmin)
@@ -188,6 +216,26 @@ func run() error {
 	docHandler.RegisterRoutes(docMux)
 	router.Handle("/api/v1/documents", requireAuth(docMux))
 	router.Handle("/api/v1/documents/", requireAuth(docMux))
+
+	// Förderung-related routes using chi router (these handlers use chi.URLParam)
+	chiRouter := chi.NewRouter()
+	foerderungHandler.RegisterRoutes(chiRouter)
+	antragHandler.RegisterRoutes(chiRouter)
+	profilHandler.RegisterRoutes(chiRouter)
+	monitorHandler.RegisterRoutes(chiRouter)
+	matcherHandler.RegisterRoutes(chiRouter)
+
+	// Mount chi router at /api/v1 (wrap with auth middleware)
+	router.Handle("/api/v1/foerderungen", requireAuth(chiRouter))
+	router.Handle("/api/v1/foerderungen/", requireAuth(chiRouter))
+	router.Handle("/api/v1/antraege", requireAuth(chiRouter))
+	router.Handle("/api/v1/antraege/", requireAuth(chiRouter))
+	router.Handle("/api/v1/profile", requireAuth(chiRouter))
+	router.Handle("/api/v1/profile/", requireAuth(chiRouter))
+	router.Handle("/api/v1/monitor", requireAuth(chiRouter))
+	router.Handle("/api/v1/monitor/", requireAuth(chiRouter))
+	router.Handle("/api/v1/foerderungssuche", requireAuth(chiRouter))
+	router.Handle("/api/v1/foerderungssuche/", requireAuth(chiRouter))
 
 	logger.Info("API routes registered")
 

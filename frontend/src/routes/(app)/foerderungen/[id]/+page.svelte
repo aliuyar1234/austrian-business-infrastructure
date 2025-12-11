@@ -59,10 +59,10 @@
 		loading = true;
 		error = '';
 		try {
-			foerderung = await api.get<Foerderung>(`/foerderungen/${foerderungId}`);
+			foerderung = await api.get<Foerderung>(`/api/v1/foerderungen/${foerderungId}`);
 			// Load combinations
 			try {
-				combinations = await api.get<CombinationAnalysis>(`/foerderungen/${foerderungId}/combinations`);
+				combinations = await api.get<CombinationAnalysis>(`/api/v1/foerderungen/${foerderungId}/combinations`);
 			} catch (e) {
 				console.error('Failed to load combinations', e);
 			}

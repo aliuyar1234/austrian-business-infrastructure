@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { cn } from '$lib/utils';
 	import { user, auth } from '$lib/stores/auth';
+	import { commandPalette } from '$lib/stores/commandPalette';
 	import Button from '$lib/components/ui/Button.svelte';
 	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte';
 
@@ -12,18 +13,11 @@
 	let { title, subtitle }: Props = $props();
 
 	let showUserMenu = $state(false);
-	let showCommandPalette = $state(false);
 
 	function handleKeydown(e: KeyboardEvent) {
-		// Cmd+K or Ctrl+K for command palette
-		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-			e.preventDefault();
-			showCommandPalette = true;
-		}
 		// Escape to close menus
 		if (e.key === 'Escape') {
 			showUserMenu = false;
-			showCommandPalette = false;
 		}
 	}
 
@@ -51,7 +45,7 @@
 	<div class="flex items-center gap-3">
 		<!-- Search button -->
 		<button
-			onclick={() => showCommandPalette = true}
+			onclick={() => commandPalette.open()}
 			class="
 				flex items-center gap-2 h-9 px-3
 				bg-[var(--color-paper-inset)] rounded-lg

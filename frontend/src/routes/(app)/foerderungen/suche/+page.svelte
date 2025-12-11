@@ -55,7 +55,7 @@
 
 	async function loadProfiles() {
 		try {
-			const response = await api.get<ProfileListResponse>('/profile?limit=100');
+			const response = await api.get<ProfileListResponse>('/api/v1/profile?limit=100');
 			profiles = response.profiles || [];
 		} catch (e) {
 			console.error('Failed to load profiles', e);
@@ -93,13 +93,13 @@
 				: {
 					company_name: companyName,
 					state: state,
-					employees: employeesCount,
+					employees_count: employeesCount,
 					is_startup: isStartup,
-					topics: selectedTopics,
+					project_topics: selectedTopics,
 					project_description: projectDescription
 				};
 
-			searchResult = await api.post('/foerderungssuche', request);
+			searchResult = await api.post('/api/v1/foerderungssuche', request);
 			step = 3;
 		} catch (e) {
 			error = 'Fehler bei der Suche. Bitte versuchen Sie es erneut.';

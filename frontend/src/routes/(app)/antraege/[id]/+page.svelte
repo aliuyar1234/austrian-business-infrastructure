@@ -76,7 +76,7 @@
 		loading = true;
 		error = '';
 		try {
-			antrag = await api.get<Antrag>(`/antraege/${antragId}`);
+			antrag = await api.get<Antrag>(`/api/v1/antraege/${antragId}`);
 			if (antrag) {
 				internalReference = antrag.internal_reference || '';
 				requestedAmount = antrag.requested_amount || null;
@@ -95,7 +95,7 @@
 		saving = true;
 		error = '';
 		try {
-			await api.put(`/antraege/${antrag.id}`, {
+			await api.put(`/api/v1/antraege/${antrag.id}`, {
 				internal_reference: internalReference || undefined,
 				requested_amount: requestedAmount || undefined,
 				notes: notes || undefined
@@ -114,7 +114,7 @@
 		saving = true;
 		error = '';
 		try {
-			await api.post(`/antraege/${antrag.id}/status`, {
+			await api.post(`/api/v1/antraege/${antrag.id}/status`, {
 				status: newStatus,
 				description: statusDescription || `Status geändert zu ${statusLabels[newStatus]?.label}`
 			});

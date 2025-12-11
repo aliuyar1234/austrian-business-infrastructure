@@ -22,7 +22,7 @@
 		loading = true;
 		error = '';
 		try {
-			const response = await api.get<ProfileListResponse>('/profile?limit=100');
+			const response = await api.get<ProfileListResponse>('/api/v1/profile?limit=100');
 			profiles = response.profiles || [];
 		} catch (e) {
 			error = 'Fehler beim Laden der Profile';
@@ -35,7 +35,7 @@
 	async function deleteProfile(id: string) {
 		if (!confirm('Möchten Sie dieses Profil wirklich löschen?')) return;
 		try {
-			await api.delete(`/profile/${id}`);
+			await api.delete(`/api/v1/profile/${id}`);
 			profiles = profiles.filter(p => p.id !== id);
 		} catch (e) {
 			error = 'Fehler beim Löschen des Profils';

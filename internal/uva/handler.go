@@ -29,12 +29,13 @@ func (h *Handler) RegisterRoutes(router *api.Router, requireAuth, requireAdmin f
 	router.Handle("POST /api/v1/uva/batches", requireAuth(requireAdmin(http.HandlerFunc(h.CreateBatch))))
 
 	// Member access: read-only and validation
+	// Batches use separate path to avoid conflict with {id} wildcard
 	router.Handle("GET /api/v1/uva", requireAuth(http.HandlerFunc(h.List)))
+	router.Handle("GET /api/v1/uva/batches", requireAuth(http.HandlerFunc(h.ListBatches)))
+	router.Handle("GET /api/v1/uva-batches/{batchID}", requireAuth(http.HandlerFunc(h.GetBatch)))
 	router.Handle("GET /api/v1/uva/{id}", requireAuth(http.HandlerFunc(h.Get)))
 	router.Handle("POST /api/v1/uva/{id}/validate", requireAuth(http.HandlerFunc(h.Validate)))
 	router.Handle("GET /api/v1/uva/{id}/xml", requireAuth(http.HandlerFunc(h.GetXML)))
-	router.Handle("GET /api/v1/uva/batches", requireAuth(http.HandlerFunc(h.ListBatches)))
-	router.Handle("GET /api/v1/uva/batches/{id}", requireAuth(http.HandlerFunc(h.GetBatch)))
 }
 
 // CreateRequest represents the create UVA request
@@ -426,7 +427,7 @@ func (h *Handler) GetBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := uuid.Parse(r.PathValue("id"))
+	id, err := uuid.Parse(r.PathValue("batchID"))
 	if err != nil {
 		api.BadRequest(w, "invalid batch ID")
 		return

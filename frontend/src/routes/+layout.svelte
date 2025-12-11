@@ -2,11 +2,18 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { auth, isInitialized } from '$lib/stores/auth';
+	import { theme } from '$lib/stores/theme';
 	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { children } = $props();
+
+	// Initialize theme on mount to ensure it's applied
+	let currentTheme = $state('system');
+	theme.subscribe((value) => {
+		currentTheme = value;
+	});
 
 	onMount(() => {
 		auth.initialize();

@@ -73,7 +73,19 @@
 
 	function isActive(href: string, pathname: string): boolean {
 		if (href === '/') return pathname === '/';
-		return pathname.startsWith(href);
+		// Exact match
+		if (pathname === href) return true;
+		// Child route match (e.g., /foerderungen/123 matches /foerderungen)
+		// But NOT if another nav item is a more specific match
+		if (pathname.startsWith(href + '/')) {
+			// Check if there's a more specific nav item that matches
+			const allHrefs = navigation.flatMap(g => g.items.map(i => i.href));
+			const moreSpecificMatch = allHrefs.some(h =>
+				h !== href && pathname.startsWith(h) && h.length > href.length
+			);
+			return !moreSpecificMatch;
+		}
+		return false;
 	}
 </script>
 

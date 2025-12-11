@@ -76,13 +76,13 @@ func NewHandlerWithSecurity(
 }
 
 // RegisterRoutes registers auth routes
-func (h *Handler) RegisterRoutes(router *api.Router) {
+func (h *Handler) RegisterRoutes(router *api.Router, requireAuth func(http.Handler) http.Handler) {
 	router.HandleFunc("POST /api/v1/auth/register", h.Register)
 	router.HandleFunc("POST /api/v1/auth/login", h.Login)
 	router.HandleFunc("POST /api/v1/auth/login/2fa", h.Login2FA)
 	router.HandleFunc("POST /api/v1/auth/refresh", h.Refresh)
 	router.HandleFunc("POST /api/v1/auth/logout", h.Logout)
-	router.HandleFunc("GET /api/v1/auth/me", h.Me)
+	router.Handle("GET /api/v1/auth/me", requireAuth(http.HandlerFunc(h.Me)))
 }
 
 // RegisterRequest represents a registration request

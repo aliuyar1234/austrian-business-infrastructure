@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
@@ -213,7 +214,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 // Get handles GET /api/v1/foerderungen/{id}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
+	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid foerderung id")
@@ -233,7 +234,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check admin role
 
-	idStr := r.PathValue("id")
+	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid foerderung id")
@@ -367,7 +368,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	// TODO: Check admin role
 
-	idStr := r.PathValue("id")
+	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid foerderung id")
@@ -411,7 +412,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 // GetCombinations handles GET /api/v1/foerderungen/{id}/combinations
 func (h *Handler) GetCombinations(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
+	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid foerderung id")
@@ -460,4 +461,18 @@ func (h *Handler) ValidateCombination(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, validation)
+}
+
+// RegisterRoutes registers foerderung routes with chi router
+func (h *Handler) RegisterRoutes(r chi.Router) {
+	r.Route("/foerderungen", func(r chi.Router) {
+		r.Post("/", h.Create)
+		r.Get("/", h.List)
+		r.Get("/stats", h.GetStats)
+		r.Post("/validate-combination", h.ValidateCombination)
+		r.Get("/{id}", h.Get)
+		r.Put("/{id}", h.Update)
+		r.Delete("/{id}", h.Delete)
+		r.Get("/{id}/combinations", h.GetCombinations)
+	})
 }

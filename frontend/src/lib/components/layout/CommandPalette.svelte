@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { commandPalette } from '$lib/stores/commandPalette';
 
 	interface SearchResult {
 		id: string;
@@ -13,6 +14,14 @@
 	}
 
 	let isOpen = $state(false);
+
+	// Sync with store
+	commandPalette.subscribe((value) => {
+		isOpen = value;
+		if (value) {
+			setTimeout(() => inputRef?.focus(), 50);
+		}
+	});
 	let query = $state('');
 	let selectedIndex = $state(0);
 	let inputRef = $state<HTMLInputElement | null>(null);
@@ -92,14 +101,13 @@
 	});
 
 	function open() {
-		isOpen = true;
+		commandPalette.open();
 		query = '';
 		selectedIndex = 0;
-		setTimeout(() => inputRef?.focus(), 50);
 	}
 
 	function close() {
-		isOpen = false;
+		commandPalette.close();
 		query = '';
 	}
 

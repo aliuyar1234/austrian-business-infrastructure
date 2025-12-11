@@ -32,8 +32,8 @@
 			params.set('limit', '50');
 
 			const [antraegeResponse, statsResponse] = await Promise.all([
-				api.get<AntraegeListResponse>(`/antraege?${params}`),
-				api.get<AntragStats>('/antraege/stats')
+				api.get<AntraegeListResponse>(`/api/v1/antraege?${params}`),
+				api.get<AntragStats>('/api/v1/antraege/stats')
 			]);
 
 			antraege = antraegeResponse.antraege || [];

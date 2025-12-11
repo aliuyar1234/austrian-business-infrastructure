@@ -53,7 +53,7 @@
 		loading = true;
 		error = '';
 		try {
-			const profile = await api.post('/profile', {
+			const profile = await api.post('/api/v1/profile', {
 				name,
 				legal_form: legalForm || undefined,
 				founded_year: foundedYear || undefined,
