@@ -1,7 +1,6 @@
 package protokoll
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"austrian-business-infrastructure/internal/api"
 )
 
 // Handler handles HTTP requests for ELDA protokoll operations
@@ -88,13 +89,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	protokolle, err := h.repo.List(r.Context(), filter)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	count, _ := h.repo.Count(r.Context(), filter)
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"data":   protokolle,
 		"total":  count,
 		"limit":  filter.Limit,
@@ -106,17 +107,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	protokoll, err := h.repo.GetByID(r.Context(), id)
 	if err != nil {
 		if err == ErrProtokollNotFound {
-			respondError(w, http.StatusNotFound, "Protokoll nicht gefunden")
+			api.RespondError(w, http.StatusNotFound, "Protokoll nicht gefunden")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -127,24 +128,24 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		protokoll.ResponseXML = ""
 	}
 
-	respondJSON(w, http.StatusOK, protokoll)
+	api.RespondJSON(w, http.StatusOK, protokoll)
 }
 
 // GetByProtokollnummer handles GET /api/v1/elda-protokolle/by-nummer/{nummer}
 func (h *Handler) GetByProtokollnummer(w http.ResponseWriter, r *http.Request) {
 	nummer := chi.URLParam(r, "nummer")
 	if nummer == "" {
-		respondError(w, http.StatusBadRequest, "Protokollnummer erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "Protokollnummer erforderlich")
 		return
 	}
 
 	protokoll, err := h.repo.GetByProtokollnummer(r.Context(), nummer)
 	if err != nil {
 		if err == ErrProtokollNotFound {
-			respondError(w, http.StatusNotFound, "Protokoll nicht gefunden")
+			api.RespondError(w, http.StatusNotFound, "Protokoll nicht gefunden")
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -155,36 +156,36 @@ func (h *Handler) GetByProtokollnummer(w http.ResponseWriter, r *http.Request) {
 		protokoll.ResponseXML = ""
 	}
 
-	respondJSON(w, http.StatusOK, protokoll)
+	api.RespondJSON(w, http.StatusOK, protokoll)
 }
 
 // GetHistoryBySVNummer handles GET /api/v1/elda-protokolle/history/{sv_nummer}
 func (h *Handler) GetHistoryBySVNummer(w http.ResponseWriter, r *http.Request) {
 	svNummer := chi.URLParam(r, "sv_nummer")
 	if svNummer == "" {
-		respondError(w, http.StatusBadRequest, "SV-Nummer erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "SV-Nummer erforderlich")
 		return
 	}
 
 	accountIDStr := r.URL.Query().Get("elda_account_id")
 	if accountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	accountID, err := uuid.Parse(accountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
 		return
 	}
 
 	history, err := h.repo.GetHistoryBySVNummer(r.Context(), accountID, svNummer)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"sv_nummer": svNummer,
 		"history":   history,
 		"count":     len(history),
@@ -195,13 +196,13 @@ func (h *Handler) GetHistoryBySVNummer(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 	accountIDStr := r.URL.Query().Get("elda_account_id")
 	if accountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	accountID, err := uuid.Parse(accountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
 		return
 	}
 
@@ -214,24 +215,13 @@ func (h *Handler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := h.repo.GetStatistics(r.Context(), accountID, days)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, stats)
+	api.RespondJSON(w, http.StatusOK, stats)
 }
 
-// Helper functions
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
-}
 
 // RegisterRoutes registers protokoll routes with the router
 func RegisterRoutes(r chi.Router, db *pgxpool.Pool) {

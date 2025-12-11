@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils';
+	import { formatDate, formatCurrency } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type CompanyStatus } from '$lib/utils/status';
 	import { toast } from '$lib/stores/toast';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 
-	type CompanyStatus = 'active' | 'dissolved' | 'liquidating' | 'unknown';
 	type LegalForm = 'GmbH' | 'AG' | 'OG' | 'KG' | 'e.U.' | 'GesbR' | 'Verein' | 'Other';
 
 	interface Company {
@@ -129,32 +129,6 @@
 		return watchlist.includes(fn);
 	}
 
-	function getStatusLabel(status: CompanyStatus): string {
-		switch (status) {
-			case 'active': return 'Active';
-			case 'dissolved': return 'Dissolved';
-			case 'liquidating': return 'In Liquidation';
-			case 'unknown': return 'Unknown';
-		}
-	}
-
-	function getStatusVariant(status: CompanyStatus): 'success' | 'error' | 'warning' | 'default' {
-		switch (status) {
-			case 'active': return 'success';
-			case 'dissolved': return 'error';
-			case 'liquidating': return 'warning';
-			case 'unknown': return 'default';
-		}
-	}
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-			minimumFractionDigits: 0,
-		}).format(amount);
-	}
-
 	async function downloadExtract() {
 		toast.success('Download started', 'Firmenbuchauszug PDF is being downloaded');
 	}
@@ -251,8 +225,8 @@
 								<div class="flex-1 min-w-0">
 									<div class="flex items-center gap-2 flex-wrap">
 										<h3 class="font-semibold text-[var(--color-ink)]">{company.name}</h3>
-										<Badge variant={getStatusVariant(company.status)} size="sm">
-											{getStatusLabel(company.status)}
+										<Badge variant={getStatusVariant(company.status, 'company')} size="sm">
+											{getStatusLabel(company.status, 'company')}
 										</Badge>
 									</div>
 									<p class="text-sm font-mono text-[var(--color-ink-secondary)] mt-1">{company.fn}</p>
@@ -260,7 +234,7 @@
 									<div class="flex items-center gap-4 mt-2 text-xs text-[var(--color-ink-muted)]">
 										<span>{company.legalForm}</span>
 										{#if company.capital}
-											<span>Capital: {formatCurrency(company.capital)}</span>
+											<span>Capital: {formatCurrency(company.capital, 'EUR', { minimumFractionDigits: 0 })}</span>
 										{/if}
 										<span>Reg: {formatDate(company.registrationDate)}</span>
 									</div>
@@ -374,8 +348,8 @@
 					<div class="space-y-6">
 						<!-- Status -->
 						<div class="flex items-center gap-2">
-							<Badge variant={getStatusVariant(selectedCompany.status)} size="sm">
-								{getStatusLabel(selectedCompany.status)}
+							<Badge variant={getStatusVariant(selectedCompany.status, 'company')} size="sm">
+								{getStatusLabel(selectedCompany.status, 'company')}
 							</Badge>
 							<span class="text-sm text-[var(--color-ink-muted)]">
 								Registered {formatDate(selectedCompany.registrationDate)}
@@ -391,7 +365,7 @@
 							{#if selectedCompany.capital}
 								<div>
 									<p class="text-xs text-[var(--color-ink-muted)] uppercase tracking-wide">Share Capital</p>
-									<p class="text-sm font-medium text-[var(--color-ink)] mt-1">{formatCurrency(selectedCompany.capital)}</p>
+									<p class="text-sm font-medium text-[var(--color-ink)] mt-1">{formatCurrency(selectedCompany.capital, 'EUR', { minimumFractionDigits: 0 })}</p>
 								</div>
 							{/if}
 						</div>

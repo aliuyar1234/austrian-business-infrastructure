@@ -11,10 +11,11 @@ import (
 
 // RateLimiter provides rate limiting functionality
 type RateLimiter struct {
-	redis      *cache.Client
-	requests   int
-	window     time.Duration
-	keyPrefix  string
+	redis          *cache.Client
+	requests       int
+	window         time.Duration
+	keyPrefix      string
+	trustedProxies map[string]bool // Trusted proxy IPs for X-Forwarded-For validation
 }
 
 // NewRateLimiter creates a new rate limiter
@@ -55,8 +56,8 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 
 		count, err := rl.redis.IncrementRateLimit(ctx, key, rl.window)
 		if err != nil {
-			// On error, allow request (fail open)
-			next.ServeHTTP(w, r)
+			// Fail-closed: reject requests when Redis is unavailable to prevent abuse during outages
+			JSONError(w, http.StatusServiceUnavailable, "Service temporarily unavailable", ErrCodeServiceUnavailable)
 			return
 		}
 
@@ -88,7 +89,8 @@ func (rl *RateLimiter) LimitByKey(keyFunc func(*http.Request) string) Middleware
 
 			count, err := rl.redis.IncrementRateLimit(ctx, key, rl.window)
 			if err != nil {
-				next.ServeHTTP(w, r)
+				// Fail-closed: reject requests when Redis is unavailable to prevent abuse during outages
+				JSONError(w, http.StatusServiceUnavailable, "Service temporarily unavailable", ErrCodeServiceUnavailable)
 				return
 			}
 
@@ -114,8 +116,8 @@ func (rl *RateLimiter) getIdentifier(r *http.Request) string {
 		return "tenant:" + tenantID
 	}
 
-	// Fall back to IP address
-	return "ip:" + getClientIP(r)
+	// Fall back to IP address with trusted proxy validation
+	return "ip:" + getClientIPWithTrustedProxies(r, rl.trustedProxies)
 }
 
 func currentWindow(window time.Duration) string {
@@ -126,23 +128,103 @@ func nextWindow(window time.Duration) time.Time {
 	return time.Now().Truncate(window).Add(window)
 }
 
+// getClientIP extracts client IP from request with trusted proxy validation
+// This prevents IP spoofing attacks (CWE-290) by only trusting X-Forwarded-For
+// from known proxy IPs (e.g., Caddy, Traefik, load balancers)
 func getClientIP(r *http.Request) string {
+	// Without trusted proxy configuration, always use RemoteAddr (secure default)
+	return getClientIPWithTrustedProxies(r, nil)
+}
+
+// getClientIPWithTrustedProxies extracts client IP with trusted proxy validation
+func getClientIPWithTrustedProxies(r *http.Request, trustedProxies map[string]bool) string {
+	// Extract remote IP (strip port if present)
+	remoteAddr := r.RemoteAddr
+	if idx := lastIndexByte(remoteAddr, ':'); idx != -1 {
+		// Check if this is IPv6 [::1]:port format
+		if len(remoteAddr) > 0 && remoteAddr[0] == '[' {
+			if bracketIdx := lastIndexByte(remoteAddr, ']'); bracketIdx != -1 {
+				remoteAddr = remoteAddr[1:bracketIdx]
+			}
+		} else {
+			remoteAddr = remoteAddr[:idx]
+		}
+	}
+
+	// Only trust forwarded headers if request comes from trusted proxy
+	// If no trusted proxies configured, always use RemoteAddr (secure default)
+	if len(trustedProxies) == 0 || !trustedProxies[remoteAddr] {
+		return remoteAddr
+	}
+
+	// Request is from trusted proxy - check X-Forwarded-For
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
+		// Parse X-Forwarded-For: client, proxy1, proxy2
+		// Get the rightmost non-trusted IP (real client)
+		ips := splitXFF(xff)
+		for i := len(ips) - 1; i >= 0; i-- {
+			ip := ips[i]
+			if !trustedProxies[ip] {
+				return ip
 			}
 		}
-		return xff
 	}
 
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
+	// Check X-Real-IP (set by some proxies like nginx)
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return trimSpace(xri)
 	}
 
-	return r.RemoteAddr
+	return remoteAddr
+}
+
+// lastIndexByte returns the index of the last instance of c in s, or -1
+func lastIndexByte(s string, c byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
+// splitXFF splits X-Forwarded-For header and trims whitespace
+func splitXFF(xff string) []string {
+	var result []string
+	start := 0
+	for i := 0; i <= len(xff); i++ {
+		if i == len(xff) || xff[i] == ',' {
+			ip := trimSpace(xff[start:i])
+			if ip != "" {
+				result = append(result, ip)
+			}
+			start = i + 1
+		}
+	}
+	return result
+}
+
+// trimSpace removes leading/trailing whitespace
+func trimSpace(s string) string {
+	start := 0
+	end := len(s)
+	for start < end && (s[start] == ' ' || s[start] == '\t') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+		end--
+	}
+	return s[start:end]
+}
+
+// SetTrustedProxies configures which proxy IPs are trusted for X-Forwarded-For
+// Common values: "127.0.0.1", "::1", "10.0.0.0/8", Docker network IPs
+func (rl *RateLimiter) SetTrustedProxies(proxies []string) {
+	rl.trustedProxies = make(map[string]bool)
+	for _, p := range proxies {
+		rl.trustedProxies[p] = true
+	}
 }
 
 func max(a, b int) int {

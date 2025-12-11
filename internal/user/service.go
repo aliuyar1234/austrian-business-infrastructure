@@ -215,6 +215,17 @@ func (s *Service) UpdatePassword(ctx context.Context, userID uuid.UUID, currentP
 	return s.repo.UpdatePassword(ctx, userID, newHash)
 }
 
+// UpdatePasswordDirect updates a user's password directly with a pre-hashed password
+// Used for password reset flows where the current password is not known
+func (s *Service) UpdatePasswordDirect(ctx context.Context, userID uuid.UUID, passwordHash string) error {
+	return s.repo.UpdatePassword(ctx, userID, passwordHash)
+}
+
+// UpdateProfile updates a user's profile (name and email)
+func (s *Service) UpdateProfile(ctx context.Context, user *User) error {
+	return s.repo.Update(ctx, user)
+}
+
 // UpdateRole changes a user's role
 func (s *Service) UpdateRole(ctx context.Context, userID uuid.UUID, newRole Role, actorID uuid.UUID) error {
 	if !IsValidRole(string(newRole)) {

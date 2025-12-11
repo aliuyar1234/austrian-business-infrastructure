@@ -89,9 +89,10 @@ func (m *RLSManager) SetTenantContext(ctx context.Context, conn DBConn, tenantID
 		return ErrInvalidTenantID
 	}
 
-	// Set the PostgreSQL session variable
-	query := fmt.Sprintf("SET app.tenant_id = '%s'", tenantID.String())
-	_, err := conn.ExecContext(ctx, query)
+	// Set the PostgreSQL session variable using parameterized query to prevent SQL injection
+	// Note: SET doesn't support $1 placeholders directly, but uuid.UUID.String() is safe
+	// because UUID validation is performed above and uuid.UUID only contains hex chars and dashes
+	_, err := conn.ExecContext(ctx, "SELECT set_config('app.tenant_id', $1, false)", tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to set tenant context: %w", err)
 	}
@@ -115,8 +116,8 @@ func SetTenantContextSQL(ctx context.Context, db *sql.DB, tenantID uuid.UUID) er
 		return ErrInvalidTenantID
 	}
 
-	query := fmt.Sprintf("SET app.tenant_id = '%s'", tenantID.String())
-	_, err := db.ExecContext(ctx, query)
+	// Use parameterized query via set_config to prevent SQL injection
+	_, err := db.ExecContext(ctx, "SELECT set_config('app.tenant_id', $1, false)", tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to set tenant context: %w", err)
 	}
@@ -129,8 +130,8 @@ func SetTenantContextTx(ctx context.Context, tx *sql.Tx, tenantID uuid.UUID) err
 		return ErrInvalidTenantID
 	}
 
-	query := fmt.Sprintf("SET LOCAL app.tenant_id = '%s'", tenantID.String())
-	_, err := tx.ExecContext(ctx, query)
+	// Use parameterized query via set_config with is_local=true for transaction scope
+	_, err := tx.ExecContext(ctx, "SELECT set_config('app.tenant_id', $1, true)", tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to set tenant context in transaction: %w", err)
 	}

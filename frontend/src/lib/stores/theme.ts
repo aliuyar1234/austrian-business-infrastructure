@@ -26,11 +26,8 @@ function createThemeStore() {
 		const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
 		const root = document.documentElement;
 
-		if (effectiveTheme === 'dark') {
-			root.classList.add('dark');
-		} else {
-			root.classList.remove('dark');
-		}
+		root.classList.toggle('dark', effectiveTheme === 'dark');
+		root.classList.toggle('light', effectiveTheme === 'light');
 
 		localStorage.setItem('theme', theme);
 	}

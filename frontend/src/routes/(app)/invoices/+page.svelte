@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils';
+	import { formatDate, formatCurrency } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type InvoiceStatus } from '$lib/utils/status';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	type InvoiceFormat = 'xrechnung' | 'zugferd';
-	type InvoiceStatus = 'draft' | 'generated' | 'sent';
 
 	interface Invoice {
 		id: string;
@@ -68,22 +69,6 @@
 		})
 	);
 
-	function getStatusLabel(status: InvoiceStatus): string {
-		switch (status) {
-			case 'draft': return 'Draft';
-			case 'generated': return 'Generated';
-			case 'sent': return 'Sent';
-		}
-	}
-
-	function getStatusVariant(status: InvoiceStatus): 'default' | 'warning' | 'success' {
-		switch (status) {
-			case 'draft': return 'default';
-			case 'generated': return 'warning';
-			case 'sent': return 'success';
-		}
-	}
-
 	function getFormatLabel(format: InvoiceFormat): string {
 		switch (format) {
 			case 'xrechnung': return 'XRechnung';
@@ -91,12 +76,6 @@
 		}
 	}
 
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-		}).format(amount);
-	}
 </script>
 
 <svelte:head>
@@ -148,19 +127,21 @@
 
 	<!-- Invoices list -->
 	{#if filteredInvoices.length === 0}
-		<Card class="text-center py-12">
-			<svg class="w-12 h-12 mx-auto text-[var(--color-ink-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-				<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-				<polyline points="14 2 14 8 20 8"/>
-				<line x1="12" x2="12" y1="18" y2="12"/>
-				<line x1="9" x2="15" y1="15" y2="15"/>
-			</svg>
-			<h3 class="mt-4 text-lg font-medium text-[var(--color-ink)]">No invoices found</h3>
-			<p class="mt-2 text-[var(--color-ink-muted)]">
-				Create your first electronic invoice to get started.
-			</p>
-			<Button href="/invoices/new" class="mt-6">Create Invoice</Button>
-		</Card>
+		<EmptyState
+			title="No invoices found"
+			description="Create your first electronic invoice to get started."
+			actionHref="/invoices/new"
+			actionLabel="Create Invoice"
+		>
+			{#snippet icon()}
+				<svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+					<polyline points="14 2 14 8 20 8"/>
+					<line x1="12" x2="12" y1="18" y2="12"/>
+					<line x1="9" x2="15" y1="15" y2="15"/>
+				</svg>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<Card padding="none">
 			<table class="table">
@@ -200,8 +181,8 @@
 								</span>
 							</td>
 							<td>
-								<Badge variant={getStatusVariant(invoice.status)} size="sm">
-									{getStatusLabel(invoice.status)}
+								<Badge variant={getStatusVariant(invoice.status, 'invoice')} size="sm">
+									{getStatusLabel(invoice.status, 'invoice')}
 								</Badge>
 							</td>
 							<td>

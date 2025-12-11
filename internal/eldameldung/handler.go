@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"austrian-business-infrastructure/internal/api"
 	"austrian-business-infrastructure/internal/elda"
 )
 
@@ -62,41 +63,41 @@ func (h *Handler) Routes() chi.Router {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req elda.MeldungCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	meldung, err := h.service.Create(r.Context(), &req)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, meldung)
+	api.RespondJSON(w, http.StatusCreated, meldung)
 }
 
 // Get handles GET /api/v1/elda-meldungen/{id}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	meldung, err := h.service.Get(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "Meldung nicht gefunden")
+		api.RespondError(w, http.StatusNotFound, "Meldung nicht gefunden")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, meldung)
+	api.RespondJSON(w, http.StatusOK, meldung)
 }
 
 // List handles GET /api/v1/elda-meldungen
@@ -153,13 +154,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	meldungen, err := h.service.List(r.Context(), filter)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	count, _ := h.service.Count(r.Context(), filter)
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"data":   meldungen,
 		"total":  count,
 		"limit":  filter.Limit,
@@ -171,46 +172,46 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	if err := h.service.Delete(r.Context(), id); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"message": "Meldung gelöscht"})
+	api.RespondJSON(w, http.StatusOK, map[string]string{"message": "Meldung gelöscht"})
 }
 
 // Validate handles POST /api/v1/elda-meldungen/{id}/validate
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.Validate(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		api.RespondError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // Preview handles GET /api/v1/elda-meldungen/{id}/preview
 func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	preview, err := h.service.Preview(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		api.RespondError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
@@ -221,21 +222,21 @@ func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, preview)
+	api.RespondJSON(w, http.StatusOK, preview)
 }
 
 // Submit handles POST /api/v1/elda-meldungen/{id}/send
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.Submit(r.Context(), id)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
@@ -243,7 +244,7 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 		}
 		// Return result even on error (contains ELDA error details)
 		if result != nil {
-			respondJSON(w, http.StatusBadGateway, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadGateway, map[string]interface{}{
 				"success":       false,
 				"error":         err.Error(),
 				"error_code":    result.ErrorCode,
@@ -251,25 +252,25 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // Retry handles POST /api/v1/elda-meldungen/{id}/retry
 func (h *Handler) Retry(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.Retry(r.Context(), id)
 	if err != nil {
 		if result != nil {
-			respondJSON(w, http.StatusBadGateway, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadGateway, map[string]interface{}{
 				"success":       false,
 				"error":         err.Error(),
 				"error_code":    result.ErrorCode,
@@ -277,57 +278,46 @@ func (h *Handler) Retry(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // GetHistory handles GET /api/v1/elda-meldungen/history/{sv_nummer}
 func (h *Handler) GetHistory(w http.ResponseWriter, r *http.Request) {
 	svNummer := chi.URLParam(r, "sv_nummer")
 	if svNummer == "" {
-		respondError(w, http.StatusBadRequest, "SV-Nummer erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "SV-Nummer erforderlich")
 		return
 	}
 
 	accountIDStr := r.URL.Query().Get("elda_account_id")
 	if accountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	accountID, err := uuid.Parse(accountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
 		return
 	}
 
 	history, err := h.service.GetHistory(r.Context(), accountID, svNummer)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"sv_nummer": svNummer,
 		"history":   history,
 		"count":     len(history),
 	})
 }
 
-// Helper functions
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
-}
 
 // SearchKollektivvertraege handles GET /api/v1/elda-meldungen/kollektivvertraege/search
 func (h *Handler) SearchKollektivvertraege(w http.ResponseWriter, r *http.Request) {
@@ -341,11 +331,11 @@ func (h *Handler) SearchKollektivvertraege(w http.ResponseWriter, r *http.Reques
 
 	results, err := h.refData.SearchKollektivvertraege(r.Context(), query, limit)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"results": results,
 		"query":   query,
 	})
@@ -354,7 +344,7 @@ func (h *Handler) SearchKollektivvertraege(w http.ResponseWriter, r *http.Reques
 // GetArbeitszeitCodes handles GET /api/v1/elda-meldungen/arbeitszeit-codes
 func (h *Handler) GetArbeitszeitCodes(w http.ResponseWriter, r *http.Request) {
 	codes := h.refData.GetArbeitszeitCodes(r.Context())
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"codes": codes,
 	})
 }
@@ -371,11 +361,11 @@ func (h *Handler) SearchBeitragsgruppen(w http.ResponseWriter, r *http.Request) 
 
 	results, err := h.refData.SearchBeitragsgruppen(r.Context(), query, limit)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"results": results,
 		"query":   query,
 	})
@@ -384,7 +374,7 @@ func (h *Handler) SearchBeitragsgruppen(w http.ResponseWriter, r *http.Request) 
 // GetAustrittGruende handles GET /api/v1/elda-meldungen/austritt-gruende
 func (h *Handler) GetAustrittGruende(w http.ResponseWriter, r *http.Request) {
 	gruende := h.refData.GetAustrittGruende(r.Context())
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"gruende": gruende,
 	})
 }
@@ -392,7 +382,7 @@ func (h *Handler) GetAustrittGruende(w http.ResponseWriter, r *http.Request) {
 // GetAenderungArten handles GET /api/v1/elda-meldungen/aenderung-arten
 func (h *Handler) GetAenderungArten(w http.ResponseWriter, r *http.Request) {
 	arten := h.refData.GetAenderungArten(r.Context())
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"arten": arten,
 	})
 }
@@ -408,27 +398,27 @@ type DetectChangesRequest struct {
 func (h *Handler) DetectChanges(w http.ResponseWriter, r *http.Request) {
 	var req DetectChangesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	if req.ELDAAccountID == uuid.Nil {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	if req.SVNummer == "" {
-		respondError(w, http.StatusBadRequest, "sv_nummer erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "sv_nummer erforderlich")
 		return
 	}
 
 	result, err := h.service.DetectChanges(r.Context(), req.ELDAAccountID, req.SVNummer, &req.ComparisonData)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // CreateAenderungFromDetectionRequest is the request for creating Änderungsmeldung from detected changes
@@ -443,17 +433,17 @@ type CreateAenderungFromDetectionRequest struct {
 func (h *Handler) CreateAenderungFromDetection(w http.ResponseWriter, r *http.Request) {
 	var req CreateAenderungFromDetectionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	if req.ELDAAccountID == uuid.Nil {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	if req.SVNummer == "" {
-		respondError(w, http.StatusBadRequest, "sv_nummer erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "sv_nummer erforderlich")
 		return
 	}
 
@@ -462,18 +452,18 @@ func (h *Handler) CreateAenderungFromDetection(w http.ResponseWriter, r *http.Re
 		if t, err := time.Parse("2006-01-02", req.AenderungDatum); err == nil {
 			aenderungDatum = t
 		} else {
-			respondError(w, http.StatusBadRequest, "Ungültiges Datum (Format: YYYY-MM-DD)")
+			api.RespondError(w, http.StatusBadRequest, "Ungültiges Datum (Format: YYYY-MM-DD)")
 			return
 		}
 	}
 
 	meldung, err := h.service.CreateAenderungFromDetection(r.Context(), req.ELDAAccountID, req.SVNummer, &req.ComparisonData, aenderungDatum)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, meldung)
+	api.RespondJSON(w, http.StatusCreated, meldung)
 }
 
 // RegisterRoutes registers ELDA meldung routes with the router

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,12 @@ WORKDIR /app
 # - ca-certificates: TLS verification
 # - tzdata: timezone support
 # - postgresql-client: pg_isready for health checks, psql for migrations
-RUN apk add --no-cache ca-certificates tzdata postgresql-client
+# - golang-migrate: database migration tool
+RUN apk add --no-cache ca-certificates tzdata postgresql-client && \
+    wget -q https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz && \
+    tar -xzf migrate.linux-amd64.tar.gz && \
+    mv migrate /usr/local/bin/migrate && \
+    rm migrate.linux-amd64.tar.gz
 
 # Create non-root user
 RUN adduser -D -g '' appuser

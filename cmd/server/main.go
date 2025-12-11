@@ -15,6 +15,8 @@ import (
 	"austrian-business-infrastructure/internal/account"
 	"austrian-business-infrastructure/internal/antrag"
 	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/apikey"
+	"austrian-business-infrastructure/internal/audit"
 	"austrian-business-infrastructure/internal/auth"
 	"austrian-business-infrastructure/internal/config"
 	"austrian-business-infrastructure/internal/document"
@@ -23,12 +25,15 @@ import (
 	"austrian-business-infrastructure/internal/invoice"
 	"austrian-business-infrastructure/internal/matcher"
 	"austrian-business-infrastructure/internal/monitor"
+	"austrian-business-infrastructure/internal/notification"
 	"austrian-business-infrastructure/internal/payment"
 	"austrian-business-infrastructure/internal/profil"
+	"austrian-business-infrastructure/internal/session"
 	"austrian-business-infrastructure/internal/tenant"
 	"austrian-business-infrastructure/internal/uid"
 	"austrian-business-infrastructure/internal/user"
 	"austrian-business-infrastructure/internal/uva"
+	"austrian-business-infrastructure/internal/webhook"
 	"austrian-business-infrastructure/internal/zm"
 	"austrian-business-infrastructure/pkg/cache"
 	"austrian-business-infrastructure/pkg/database"
@@ -123,6 +128,11 @@ func run() error {
 	monitorNotifRepo := monitor.NewNotificationRepository(db.Pool)
 	matcherSearchRepo := matcher.NewSearchRepository(db.Pool)
 
+	// Additional repositories for new handlers
+	auditRepo := audit.NewRepository(db.Pool)
+	notificationRepo := notification.NewRepository(db.Pool)
+	apikeyRepo := apikey.NewRepository(db.Pool)
+
 	// Initialize services
 	userService := user.NewService(userRepo)
 	tenantService := tenant.NewService(db.Pool, tenantRepo, userRepo)
@@ -145,6 +155,9 @@ func run() error {
 	monitorService := monitor.NewService(monitorRepo, monitorNotifRepo)
 	matcherService := matcher.NewService(foerderungRepo, matcherSearchRepo, nil, nil) // nil LLM client for now
 
+	// Additional services for new handlers (apikey only, notification needs docRepo)
+	apikeyService := apikey.NewService(apikeyRepo)
+
 	// Initialize document storage and service with IDOR protection
 	docStorage, err := document.NewStorage(&document.StorageConfig{
 		Type:              document.StorageType(cfg.StorageType),
@@ -164,6 +177,18 @@ func run() error {
 	// CRITICAL: Use NewServiceWithAccountVerifier to enable tenant isolation on document creation
 	// This prevents IDOR attacks where attackers could create documents for accounts they don't own
 	docService := document.NewServiceWithAccountVerifier(docRepo, docStorage, accountRepo)
+
+	// Initialize notification service (needs docRepo to be initialized first)
+	notificationService := notification.NewService(notificationRepo, docRepo, nil, &notification.ServiceConfig{
+		Logger: logger,
+		AppURL: "http://localhost:3000", // TODO: Get from config
+	})
+
+	// Initialize webhook repository and service
+	webhookRepo := webhook.NewRepository(db.Pool)
+	webhookService := webhook.NewService(webhookRepo, &webhook.ServiceConfig{
+		Logger: logger,
+	})
 
 	// Initialize JWT manager with revocation support
 	jwtConfig := auth.DefaultJWTConfig(cfg.JWTSecret)
@@ -192,6 +217,14 @@ func run() error {
 	monitorHandler := monitor.NewHandler(monitorService)
 	matcherHandler := matcher.NewHandler(matcherService, profilRepo)
 
+	// Additional handlers for user management, sessions, audit, notifications, API keys, webhooks
+	userHandler := user.NewHandler(userService, logger)
+	sessionHandler := session.NewHandler(sessionManager, logger)
+	auditHandler := audit.NewHandler(auditRepo, logger)
+	notificationHandler := notification.NewHandler(notificationService)
+	apikeyHandler := apikey.NewHandler(apikeyService, logger)
+	webhookHandler := webhook.NewHandler(webhookRepo, webhookService)
+
 	// Auth middleware
 	authMiddleware := auth.NewAuthMiddleware(jwtManager)
 	requireAuth := authMiddleware.RequireAuth
@@ -209,6 +242,33 @@ func run() error {
 	paymentHandler.RegisterRoutes(router, requireAuth, requireAdmin)
 	firmenbuchHandler.RegisterRoutes(router, requireAuth, requireAdmin)
 	uidHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+
+	// User management routes (admin-only for modifications)
+	userHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+
+	// Session management routes (users can manage their own sessions)
+	sessionHandler.RegisterRoutes(router, requireAuth)
+
+	// Audit log routes (admin-only)
+	auditHandler.RegisterRoutes(router, requireAuth, requireAdmin)
+
+	// 2FA setup routes (authenticated users)
+	authHandler.Register2FARoutes(router, requireAuth)
+
+	// API key management routes (authenticated users)
+	apikeyHandler.RegisterRoutes(router, requireAuth)
+
+	// Notification preferences routes (wrap with auth middleware)
+	notifMux := http.NewServeMux()
+	notificationHandler.RegisterRoutes(notifMux)
+	router.Handle("/api/v1/notifications/preferences", requireAuth(notifMux))
+	router.Handle("/api/v1/notifications/preferences/", requireAuth(notifMux))
+
+	// Webhook routes (wrap with auth middleware, admin-only for create/update/delete)
+	webhookMux := http.NewServeMux()
+	webhookHandler.RegisterRoutes(webhookMux)
+	router.Handle("/api/v1/webhooks", requireAuth(webhookMux))
+	router.Handle("/api/v1/webhooks/", requireAuth(webhookMux))
 
 	// Document routes (protected by auth middleware)
 	// Wrap document routes with auth middleware since RegisterRoutes uses raw mux

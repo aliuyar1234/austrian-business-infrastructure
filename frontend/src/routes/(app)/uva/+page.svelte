@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils';
+	import { formatDate, formatCurrency } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type UVAStatus } from '$lib/utils/status';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-
-	type UVAStatus = 'draft' | 'submitted' | 'accepted' | 'rejected';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
 	interface UVA {
 		id: string;
@@ -82,31 +82,6 @@
 	);
 
 	let accounts = $derived([...new Set(uvas.map(u => ({ id: u.accountId, name: u.accountName })))]);
-
-	function getStatusLabel(status: UVAStatus): string {
-		switch (status) {
-			case 'draft': return 'Draft';
-			case 'submitted': return 'Submitted';
-			case 'accepted': return 'Accepted';
-			case 'rejected': return 'Rejected';
-		}
-	}
-
-	function getStatusVariant(status: UVAStatus): 'default' | 'warning' | 'success' | 'error' {
-		switch (status) {
-			case 'draft': return 'default';
-			case 'submitted': return 'warning';
-			case 'accepted': return 'success';
-			case 'rejected': return 'error';
-		}
-	}
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-		}).format(amount);
-	}
 </script>
 
 <svelte:head>
@@ -157,17 +132,19 @@
 
 	<!-- UVA list -->
 	{#if filteredUVAs.length === 0}
-		<Card class="text-center py-12">
-			<svg class="w-12 h-12 mx-auto text-[var(--color-ink-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-				<rect width="18" height="18" x="3" y="3" rx="2"/>
-				<path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
-			</svg>
-			<h3 class="mt-4 text-lg font-medium text-[var(--color-ink)]">No UVA returns found</h3>
-			<p class="mt-2 text-[var(--color-ink-muted)]">
-				Create your first UVA return to get started.
-			</p>
-			<Button href="/uva/new" class="mt-6">Create UVA</Button>
-		</Card>
+		<EmptyState
+			title="No UVA returns found"
+			description="Create your first UVA return to get started."
+			actionHref="/uva/new"
+			actionLabel="Create UVA"
+		>
+			{#snippet icon()}
+				<svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<rect width="18" height="18" x="3" y="3" rx="2"/>
+					<path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/>
+				</svg>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<div class="space-y-4">
 			{#each filteredUVAs as uva}
@@ -182,8 +159,8 @@
 							<div>
 								<div class="flex items-center gap-2">
 									<h3 class="font-medium text-[var(--color-ink)]">UVA {uva.period}</h3>
-									<Badge variant={getStatusVariant(uva.status)} size="sm">
-										{getStatusLabel(uva.status)}
+									<Badge variant={getStatusVariant(uva.status, 'uva')} size="sm">
+										{getStatusLabel(uva.status, 'uva')}
 									</Badge>
 								</div>
 								<p class="text-sm text-[var(--color-ink-muted)]">

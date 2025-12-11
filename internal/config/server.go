@@ -127,7 +127,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 		// Application
 		AppName:        getEnv("APP_NAME", "Austrian Business Platform"),
 		AppURL:         getEnv("APP_URL", "http://localhost:8080"),
-		AllowedOrigins: getEnvList("ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:8080"}),
+		AllowedOrigins: getEnvList("ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173", "http://localhost:8080"}),
 
 		// Features
 		EnableRegistration: getEnvBool("ENABLE_REGISTRATION", true),

@@ -65,6 +65,12 @@ coverage:
 	$(GO) test -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 
+# Generate test coverage including tests/ directory against internal packages
+coverage-full:
+	$(GO) test -coverprofile=coverage.out -coverpkg=./internal/...,./pkg/... ./tests/... ./internal/... ./pkg/...
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	$(GO) tool cover -func=coverage.out | tail -1
+
 # Start development environment
 dev-up:
 	docker compose up -d postgres redis
@@ -89,5 +95,6 @@ help:
 	@echo "  migrate-down    - Run database migrations down"
 	@echo "  clean           - Clean build artifacts"
 	@echo "  coverage        - Generate test coverage report"
+	@echo "  coverage-full   - Generate full coverage including tests/ directory"
 	@echo "  dev-up          - Start development dependencies"
 	@echo "  dev-down        - Stop development dependencies"

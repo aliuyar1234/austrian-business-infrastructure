@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { formatCurrency } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -68,13 +69,6 @@
 		if (lineItems.length > 1) {
 			lineItems = lineItems.filter(item => item.id !== id);
 		}
-	}
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-		}).format(amount);
 	}
 
 	async function handleGenerate() {

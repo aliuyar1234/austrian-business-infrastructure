@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { formatCurrency } from '$lib/utils';
 	import { toast } from '$lib/stores/toast';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -46,13 +47,6 @@
 		'Jänner', 'Februar', 'März', 'April', 'Mai', 'Juni',
 		'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
 	];
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-		}).format(amount);
-	}
 
 	async function handleValidate() {
 		if (!selectedAccountId) {

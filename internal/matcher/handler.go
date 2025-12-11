@@ -37,6 +37,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Route("/foerderungssuche", func(r chi.Router) {
 		r.Post("/", h.Search)
 		r.Get("/{id}", h.GetSearch)
+		r.Get("/{id}/export", h.ExportSearch)
 		r.Get("/", h.ListSearches)
 	})
 }
@@ -225,6 +226,119 @@ func (h *Handler) GetSearch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// ExportSearch handles GET /api/v1/foerderungssuche/{id}/export
+func (h *Handler) ExportSearch(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := getTenantIDFromContext(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid search ID")
+		return
+	}
+
+	search, err := h.service.searchRepo.GetByIDAndTenant(r.Context(), id, tenantID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Search not found")
+		return
+	}
+
+	// Parse matches from JSON
+	matches, err := search.GetMatchesSlice()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to parse search results")
+		return
+	}
+
+	// Get format from query params (default to markdown)
+	format := r.URL.Query().Get("format")
+	if format == "" {
+		format = "markdown"
+	}
+
+	switch format {
+	case "markdown":
+		h.exportMarkdown(w, search, matches)
+	case "pdf":
+		// PDF export is not yet implemented - return markdown with appropriate message
+		writeError(w, http.StatusNotImplemented, "PDF export is not yet implemented. Please use format=markdown")
+	default:
+		writeError(w, http.StatusBadRequest, "Invalid format. Use 'markdown' or 'pdf'")
+	}
+}
+
+// exportMarkdown exports search results as markdown
+func (h *Handler) exportMarkdown(w http.ResponseWriter, search *foerderung.FoerderungsSuche, matches []foerderung.FoerderungsMatch) {
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=foerderungssuche-"+search.ID.String()+".md")
+
+	// Build markdown content
+	md := "# Foerderungssuche Export\n\n"
+	md += "**Suche ID:** " + search.ID.String() + "\n"
+	md += "**Durchsucht:** " + strconv.Itoa(search.TotalFoerderungen) + " Foerderungen\n"
+	md += "**Treffer:** " + strconv.Itoa(search.TotalMatches) + "\n"
+	md += "**Erstellt am:** " + search.CreatedAt.Format("02.01.2006 15:04") + "\n\n"
+
+	if len(matches) == 0 {
+		md += "Keine passenden Foerderungen gefunden.\n"
+	} else {
+		md += "## Passende Foerderungen\n\n"
+		for i, m := range matches {
+			md += "### " + strconv.Itoa(i+1) + ". " + m.FoerderungName + "\n\n"
+			md += "- **Anbieter:** " + m.Provider + "\n"
+			md += "- **Gesamtbewertung:** " + strconv.FormatFloat(m.TotalScore*100, 'f', 0, 64) + "%\n"
+			md += "- **Regel-Score:** " + strconv.FormatFloat(m.RuleScore*100, 'f', 0, 64) + "%\n"
+			if m.LLMScore > 0 {
+				md += "- **KI-Score:** " + strconv.FormatFloat(m.LLMScore*100, 'f', 0, 64) + "%\n"
+			}
+
+			if m.LLMResult != nil {
+				md += "\n**KI-Analyse:**\n"
+				if m.LLMResult.Eligible {
+					md += "- Foerderberechtigt: Ja (" + m.LLMResult.Confidence + " Konfidenz)\n"
+				} else {
+					md += "- Foerderberechtigt: Nein\n"
+				}
+
+				if len(m.LLMResult.MatchedCriteria) > 0 {
+					md += "- Erfuellte Kriterien:\n"
+					for _, c := range m.LLMResult.MatchedCriteria {
+						md += "  - " + c + "\n"
+					}
+				}
+
+				if len(m.LLMResult.Concerns) > 0 {
+					md += "- Bedenken:\n"
+					for _, c := range m.LLMResult.Concerns {
+						md += "  - " + c + "\n"
+					}
+				}
+
+				if m.LLMResult.EstimatedAmount != nil {
+					md += "- Geschaetzter Betrag: EUR " + strconv.Itoa(*m.LLMResult.EstimatedAmount) + "\n"
+				}
+
+				if len(m.LLMResult.NextSteps) > 0 {
+					md += "- Naechste Schritte:\n"
+					for _, s := range m.LLMResult.NextSteps {
+						md += "  - " + s + "\n"
+					}
+				}
+
+				if m.LLMResult.InsiderTip != nil {
+					md += "- **Tipp:** " + *m.LLMResult.InsiderTip + "\n"
+				}
+			}
+			md += "\n---\n\n"
+		}
+	}
+
+	w.Write([]byte(md))
 }
 
 // ListSearches handles GET /api/v1/foerderungssuche

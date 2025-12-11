@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { formatDate } from '$lib/utils';
+	import { formatDate, formatCurrency } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type PaymentStatus } from '$lib/utils/status';
 	import { toast } from '$lib/stores/toast';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 
-	type PaymentStatus = 'draft' | 'generated' | 'sent' | 'executed';
 	type PaymentType = 'credit' | 'debit';
 
 	interface Payment {
@@ -84,31 +85,6 @@
 			return matchesSearch && matchesType && matchesStatus;
 		})
 	);
-
-	function getStatusLabel(status: PaymentStatus): string {
-		switch (status) {
-			case 'draft': return 'Draft';
-			case 'generated': return 'Generated';
-			case 'sent': return 'Sent';
-			case 'executed': return 'Executed';
-		}
-	}
-
-	function getStatusVariant(status: PaymentStatus): 'default' | 'warning' | 'info' | 'success' {
-		switch (status) {
-			case 'draft': return 'default';
-			case 'generated': return 'warning';
-			case 'sent': return 'info';
-			case 'executed': return 'success';
-		}
-	}
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-		}).format(amount);
-	}
 
 	function formatIBAN(iban: string): string {
 		return iban.replace(/(.{4})/g, '$1 ').trim();
@@ -214,17 +190,19 @@
 
 	<!-- Payments list -->
 	{#if filteredPayments.length === 0}
-		<Card class="text-center py-12">
-			<svg class="w-12 h-12 mx-auto text-[var(--color-ink-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-				<rect width="20" height="14" x="2" y="5" rx="2"/>
-				<line x1="2" x2="22" y1="10" y2="10"/>
-			</svg>
-			<h3 class="mt-4 text-lg font-medium text-[var(--color-ink)]">No payments found</h3>
-			<p class="mt-2 text-[var(--color-ink-muted)]">
-				Create your first SEPA payment to get started.
-			</p>
-			<Button onclick={() => { showNewPaymentModal = true; }} class="mt-6">Create Payment</Button>
-		</Card>
+		<EmptyState
+			title="No payments found"
+			description="Create your first SEPA payment to get started."
+			onAction={() => { showNewPaymentModal = true; }}
+			actionLabel="Create Payment"
+		>
+			{#snippet icon()}
+				<svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<rect width="20" height="14" x="2" y="5" rx="2"/>
+					<line x1="2" x2="22" y1="10" y2="10"/>
+				</svg>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<Card padding="none">
 			<table class="table">
@@ -268,8 +246,8 @@
 								</span>
 							</td>
 							<td>
-								<Badge variant={getStatusVariant(payment.status)} size="sm">
-									{getStatusLabel(payment.status)}
+								<Badge variant={getStatusVariant(payment.status, 'payment')} size="sm">
+									{getStatusLabel(payment.status, 'payment')}
 								</Badge>
 							</td>
 							<td>

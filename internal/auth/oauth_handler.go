@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -13,6 +14,8 @@ import (
 	"austrian-business-infrastructure/internal/tenant"
 	"austrian-business-infrastructure/internal/user"
 	"austrian-business-infrastructure/pkg/cache"
+
+	"github.com/google/uuid"
 )
 
 // OAuthHandler handles OAuth authentication HTTP requests
@@ -55,6 +58,7 @@ func NewOAuthHandler(
 func (h *OAuthHandler) RegisterRoutes(router *api.Router) {
 	router.HandleFunc("GET /api/v1/auth/oauth/{provider}", h.StartOAuth)
 	router.HandleFunc("GET /api/v1/auth/oauth/{provider}/callback", h.OAuthCallback)
+	router.HandleFunc("POST /api/v1/auth/oauth/token", h.ExchangeCode)
 }
 
 // StartOAuthRequest is the request to start OAuth flow
@@ -179,7 +183,8 @@ func (h *OAuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate tokens (Email intentionally excluded from JWT per FR-104)
-	tokens, err := h.jwtManager.GenerateTokenPair(&UserInfo{
+	// Note: tokens used internally for session creation, auth code returned to client
+	_, err = h.jwtManager.GenerateTokenPair(&UserInfo{
 		UserID:   u.ID.String(),
 		TenantID: tenantID,
 		Role:     string(u.Role),
@@ -191,22 +196,18 @@ func (h *OAuthHandler) OAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session
-	_, err = h.sessionManager.CreateSession(
-		r.Context(),
-		u.ID,
-		tokens.RefreshToken,
-		r.UserAgent(),
-		h.getClientIP(r),
-	)
-
+	// Generate a short-lived authorization code instead of returning tokens directly
+	// This prevents token exposure in browser history, logs, and referrer headers
+	authCode, err := h.generateAuthCode(r.Context(), u, tenantID)
 	if err != nil {
-		h.logger.Error("failed to create session", "error", err)
+		h.logger.Error("failed to generate auth code", "error", err)
+		h.redirectWithError(w, r, "Failed to create session")
+		return
 	}
 
-	// Redirect to frontend with tokens
-	// In production, you'd set cookies or use a one-time code
-	redirectURL := h.appURL + "/auth/callback?access_token=" + tokens.AccessToken + "&token_type=Bearer"
+	// Redirect to frontend with authorization code only (not the token)
+	// Frontend must exchange this code for tokens via POST /api/v1/auth/oauth/token
+	redirectURL := h.appURL + "/auth/callback?code=" + authCode
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
@@ -359,4 +360,137 @@ func generateRandomPassword() string {
 	b := make([]byte, 32)
 	rand.Read(b)
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// ============== OAuth Authorization Code Exchange ==============
+
+const (
+	oauthCodePrefix = "oauth_code:"
+	oauthCodeTTL    = 60 * time.Second // Short-lived: 60 seconds
+)
+
+// oauthCodeData stores the data associated with an authorization code
+type oauthCodeData struct {
+	UserID      string `json:"user_id"`
+	TenantID    string `json:"tenant_id"`
+	Role        string `json:"role"`
+	UserAgent   string `json:"user_agent"`
+	ClientIP    string `json:"client_ip"`
+}
+
+// generateAuthCode creates a short-lived authorization code for OAuth callback
+func (h *OAuthHandler) generateAuthCode(ctx context.Context, u *user.User, tenantID string) (string, error) {
+	// Generate random authorization code
+	codeBytes := make([]byte, 32)
+	if _, err := rand.Read(codeBytes); err != nil {
+		return "", err
+	}
+	code := base64.RawURLEncoding.EncodeToString(codeBytes)
+
+	// Store user info in Redis with short TTL
+	data := oauthCodeData{
+		UserID:   u.ID.String(),
+		TenantID: tenantID,
+		Role:     string(u.Role),
+	}
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+
+	key := oauthCodePrefix + code
+	if err := h.redis.Set(ctx, key, string(dataJSON), oauthCodeTTL).Err(); err != nil {
+		return "", err
+	}
+
+	return code, nil
+}
+
+// ExchangeCodeRequest is the request body for code exchange
+type ExchangeCodeRequest struct {
+	Code string `json:"code"`
+}
+
+// ExchangeCodeResponse is the response for code exchange
+type ExchangeCodeResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+// ExchangeCode handles POST /api/v1/auth/oauth/token
+// Exchanges a short-lived authorization code for access tokens
+func (h *OAuthHandler) ExchangeCode(w http.ResponseWriter, r *http.Request) {
+	var req ExchangeCodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		api.BadRequest(w, "Invalid request body")
+		return
+	}
+
+	if req.Code == "" {
+		api.BadRequest(w, "Authorization code is required")
+		return
+	}
+
+	// Retrieve and validate the authorization code
+	key := oauthCodePrefix + req.Code
+	dataJSON, err := h.redis.Get(r.Context(), key).Result()
+	if err != nil {
+		api.JSONError(w, http.StatusUnauthorized, "Invalid or expired authorization code", "INVALID_CODE")
+		return
+	}
+
+	// Delete the code immediately (one-time use)
+	h.redis.Del(r.Context(), key)
+
+	var data oauthCodeData
+	if err := json.Unmarshal([]byte(dataJSON), &data); err != nil {
+		api.InternalError(w)
+		return
+	}
+
+	// Generate tokens
+	tokens, err := h.jwtManager.GenerateTokenPair(&UserInfo{
+		UserID:   data.UserID,
+		TenantID: data.TenantID,
+		Role:     data.Role,
+	})
+	if err != nil {
+		h.logger.Error("failed to generate tokens", "error", err)
+		api.InternalError(w)
+		return
+	}
+
+	// Parse user ID for session creation
+	userID, err := parseUUID(data.UserID)
+	if err != nil {
+		h.logger.Error("failed to parse user ID", "error", err)
+		api.InternalError(w)
+		return
+	}
+
+	// Create session
+	_, err = h.sessionManager.CreateSession(
+		r.Context(),
+		userID,
+		tokens.RefreshToken,
+		r.UserAgent(),
+		h.getClientIP(r),
+	)
+	if err != nil {
+		h.logger.Error("failed to create session", "error", err)
+		// Continue - tokens are still valid
+	}
+
+	// Return tokens in response body (secure - not in URL)
+	api.JSONResponse(w, http.StatusOK, ExchangeCodeResponse{
+		AccessToken: tokens.AccessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   900, // 15 minutes
+	})
+}
+
+// parseUUID parses a UUID string
+func parseUUID(s string) (uuid.UUID, error) {
+	return uuid.Parse(s)
 }

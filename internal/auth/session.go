@@ -229,6 +229,46 @@ func (m *SessionManager) DeleteAllUserSessions(ctx context.Context, userID uuid.
 	return nil
 }
 
+// DeleteAllUserSessionsExcept removes all sessions for a user except the specified one
+// This is useful for password change flows where we want to keep the current session active
+func (m *SessionManager) DeleteAllUserSessionsExcept(ctx context.Context, userID uuid.UUID, exceptSessionID uuid.UUID) error {
+	// Get all session IDs first for Redis cleanup (excluding the exception)
+	query := `SELECT id FROM sessions WHERE user_id = $1 AND id != $2`
+	rows, err := m.pool.Query(ctx, query, userID, exceptSessionID)
+	if err != nil {
+		return err
+	}
+
+	var sessionIDs []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		sessionIDs = append(sessionIDs, id)
+	}
+	rows.Close()
+
+	if len(sessionIDs) == 0 {
+		return nil // No other sessions to delete
+	}
+
+	// Delete from database
+	deleteQuery := `DELETE FROM sessions WHERE user_id = $1 AND id != $2`
+	if _, err := m.pool.Exec(ctx, deleteQuery, userID, exceptSessionID); err != nil {
+		return err
+	}
+
+	// Remove from Redis
+	for _, id := range sessionIDs {
+		sessionKey := "session:" + id.String()
+		m.redis.Del(ctx, sessionKey)
+	}
+
+	return nil
+}
+
 // ListUserSessions returns all active sessions for a user
 func (m *SessionManager) ListUserSessions(ctx context.Context, userID uuid.UUID) ([]*Session, error) {
 	query := `

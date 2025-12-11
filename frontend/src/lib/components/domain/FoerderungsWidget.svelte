@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api/client';
+	import { formatCurrency } from '$lib/utils';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -46,11 +47,7 @@
 
 	function formatAmount(amount?: number): string {
 		if (!amount) return '-';
-		return new Intl.NumberFormat('de-AT', {
-			style: 'currency',
-			currency: 'EUR',
-			maximumFractionDigits: 0
-		}).format(amount);
+		return formatCurrency(amount, 'EUR', { maximumFractionDigits: 0 });
 	}
 
 	function formatDeadline(deadline?: string): string {

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"austrian-business-infrastructure/internal/constants"
 )
 
 const (
@@ -103,7 +105,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 	}
 
 	if cfg.Timeout == 0 {
-		cfg.Timeout = 60 * time.Second
+		cfg.Timeout = constants.AIClientTimeout
 	}
 
 	return &Client{

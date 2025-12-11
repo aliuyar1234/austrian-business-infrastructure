@@ -7,18 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+
+	"austrian-business-infrastructure/internal/constants"
 )
 
 const (
-	// Time allowed to write a message to the peer
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period (must be less than pongWait)
-	pingPeriod = 30 * time.Second
-
 	// Maximum message size allowed from peer
 	maxMessageSize = 512
 
@@ -60,9 +53,9 @@ func (c *Client) ReadPump() {
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetReadDeadline(time.Now().Add(constants.WebSocketPongWait))
 	c.conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		c.conn.SetReadDeadline(time.Now().Add(constants.WebSocketPongWait))
 		return nil
 	})
 
@@ -86,7 +79,7 @@ func (c *Client) ReadPump() {
 // WritePump writes messages to the WebSocket connection
 // The client is responsible for calling this in a goroutine
 func (c *Client) WritePump() {
-	ticker := time.NewTicker(pingPeriod)
+	ticker := time.NewTicker(constants.WebSocketPingPeriod)
 	defer func() {
 		ticker.Stop()
 		c.conn.Close()
@@ -95,7 +88,7 @@ func (c *Client) WritePump() {
 	for {
 		select {
 		case event, ok := <-c.send:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			c.conn.SetWriteDeadline(time.Now().Add(constants.WebSocketWriteWait))
 			if !ok {
 				// Hub closed the channel
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -111,7 +104,7 @@ func (c *Client) WritePump() {
 			}
 
 		case <-ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			c.conn.SetWriteDeadline(time.Now().Add(constants.WebSocketWriteWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

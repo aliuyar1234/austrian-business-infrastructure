@@ -50,6 +50,13 @@
 	--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 	--shadow-card: 0 0 0 1px rgb(0 0 0 / 0.03), 0 2px 4px rgb(0 0 0 / 0.03);
 
+	/* Border colors - theme-aware */
+	--color-border: rgb(0 0 0 / 0.06);
+	--color-border-subtle: rgb(0 0 0 / 0.04);
+	--color-border-medium: rgb(0 0 0 / 0.1);
+	--color-border-strong: rgb(0 0 0 / 0.15);
+	--color-border-heavy: rgb(0 0 0 / 0.2);
+
 	/* Spacing - 8px grid */
 	--spacing-unit: 8px;
 
@@ -89,6 +96,13 @@ html.dark {
 	--color-warning-muted: #78350f;
 	--color-error-muted: #7f1d1d;
 	--color-info-muted: #0c4a6e;
+
+	/* Border colors for dark mode */
+	--color-border: rgb(255 255 255 / 0.06);
+	--color-border-subtle: rgb(255 255 255 / 0.04);
+	--color-border-medium: rgb(255 255 255 / 0.1);
+	--color-border-strong: rgb(255 255 255 / 0.15);
+	--color-border-heavy: rgb(255 255 255 / 0.2);
 }
 
 /* System preference fallback */
@@ -108,6 +122,13 @@ html.dark {
 		--color-warning-muted: #78350f;
 		--color-error-muted: #7f1d1d;
 		--color-info-muted: #0c4a6e;
+
+		/* Border colors for dark mode */
+		--color-border: rgb(255 255 255 / 0.06);
+		--color-border-subtle: rgb(255 255 255 / 0.04);
+		--color-border-medium: rgb(255 255 255 / 0.1);
+		--color-border-strong: rgb(255 255 255 / 0.15);
+		--color-border-heavy: rgb(255 255 255 / 0.2);
 	}
 }
 
@@ -177,7 +198,7 @@ html.dark {
 	/* Card with subtle border */
 	.card {
 		background: var(--color-paper-elevated);
-		border: 1px solid rgb(0 0 0 / 0.06);
+		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-card);
 	}
@@ -210,12 +231,12 @@ html.dark {
 	.btn-outline {
 		background: transparent;
 		color: var(--color-ink-secondary);
-		border: 1px solid rgb(0 0 0 / 0.15);
+		border: 1px solid var(--color-border-strong);
 	}
 
 	.btn-outline:hover:not(:disabled) {
 		background: var(--color-paper-inset);
-		border-color: rgb(0 0 0 / 0.2);
+		border-color: var(--color-border-heavy);
 	}
 
 	/* Primary button - Austrian red */
@@ -248,7 +269,7 @@ html.dark {
 		color: var(--color-ink);
 		font-weight: 500;
 		padding: 0.625rem 1.25rem;
-		border: 1px solid rgb(0 0 0 / 0.1);
+		border: 1px solid var(--color-border-medium);
 		border-radius: var(--radius-md);
 		transition: all var(--transition-fast);
 		display: inline-flex;
@@ -259,7 +280,7 @@ html.dark {
 
 	.btn-secondary:hover {
 		background: var(--color-paper-inset);
-		border-color: rgb(0 0 0 / 0.15);
+		border-color: var(--color-border-strong);
 	}
 
 	/* Ghost button */
@@ -285,7 +306,7 @@ html.dark {
 	.input {
 		background: var(--color-paper-elevated);
 		color: var(--color-ink);
-		border: 1px solid rgb(0 0 0 / 0.1);
+		border: 1px solid var(--color-border-medium);
 		border-radius: var(--radius-md);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.9375rem;
@@ -304,14 +325,14 @@ html.dark {
 	}
 
 	.input-bordered {
-		border: 1px solid rgb(0 0 0 / 0.15);
+		border: 1px solid var(--color-border-strong);
 	}
 
 	/* Select field */
 	.select {
 		background: var(--color-paper-elevated);
 		color: var(--color-ink);
-		border: 1px solid rgb(0 0 0 / 0.1);
+		border: 1px solid var(--color-border-medium);
 		border-radius: var(--radius-md);
 		padding: 0.625rem 2.5rem 0.625rem 0.875rem;
 		font-size: 0.9375rem;
@@ -332,7 +353,7 @@ html.dark {
 	}
 
 	.select-bordered {
-		border: 1px solid rgb(0 0 0 / 0.15);
+		border: 1px solid var(--color-border-strong);
 	}
 
 	.select option {
@@ -344,7 +365,7 @@ html.dark {
 	.textarea {
 		background: var(--color-paper-elevated);
 		color: var(--color-ink);
-		border: 1px solid rgb(0 0 0 / 0.1);
+		border: 1px solid var(--color-border-medium);
 		border-radius: var(--radius-md);
 		padding: 0.625rem 0.875rem;
 		font-size: 0.9375rem;
@@ -365,14 +386,14 @@ html.dark {
 	}
 
 	.textarea-bordered {
-		border: 1px solid rgb(0 0 0 / 0.15);
+		border: 1px solid var(--color-border-strong);
 	}
 
 	/* Checkbox */
 	.checkbox {
 		width: 1.25rem;
 		height: 1.25rem;
-		border: 2px solid rgb(0 0 0 / 0.2);
+		border: 2px solid var(--color-border-heavy);
 		border-radius: var(--radius-sm);
 		appearance: none;
 		cursor: pointer;
@@ -441,7 +462,7 @@ html.dark {
 	.loading-spinner {
 		width: 1.5rem;
 		height: 1.5rem;
-		border: 2px solid rgb(0 0 0 / 0.1);
+		border: 2px solid var(--color-border-medium);
 		border-top-color: var(--color-accent);
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
@@ -557,12 +578,12 @@ html.dark {
 		letter-spacing: 0.05em;
 		color: var(--color-ink-muted);
 		padding: 0.75rem 1rem;
-		border-bottom: 1px solid rgb(0 0 0 / 0.06);
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.table td {
 		padding: 1rem;
-		border-bottom: 1px solid rgb(0 0 0 / 0.04);
+		border-bottom: 1px solid var(--color-border-subtle);
 		font-size: 0.9375rem;
 	}
 
@@ -628,8 +649,8 @@ html.dark {
 	/* Grid patterns */
 	.grid-pattern {
 		background-image:
-			linear-gradient(rgb(0 0 0 / 0.02) 1px, transparent 1px),
-			linear-gradient(90deg, rgb(0 0 0 / 0.02) 1px, transparent 1px);
+			linear-gradient(var(--color-border-subtle) 1px, transparent 1px),
+			linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px);
 		background-size: 24px 24px;
 	}
 }

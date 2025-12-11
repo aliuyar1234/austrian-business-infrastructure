@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"austrian-business-infrastructure/internal/api"
 	"austrian-business-infrastructure/internal/elda"
 )
 
@@ -71,41 +72,41 @@ func (h *Handler) Routes() chi.Router {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req elda.LohnzettelCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	lohnzettel, err := h.service.Create(r.Context(), &req)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, lohnzettel)
+	api.RespondJSON(w, http.StatusCreated, lohnzettel)
 }
 
 // Get handles GET /api/v1/lohnzettel/{id}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	lohnzettel, err := h.service.Get(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "Lohnzettel nicht gefunden")
+		api.RespondError(w, http.StatusNotFound, "Lohnzettel nicht gefunden")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, lohnzettel)
+	api.RespondJSON(w, http.StatusOK, lohnzettel)
 }
 
 // List handles GET /api/v1/lohnzettel
@@ -153,14 +154,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	lohnzettel, err := h.service.List(r.Context(), filter)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Get total count
 	count, _ := h.service.Count(r.Context(), filter)
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"data":   lohnzettel,
 		"total":  count,
 		"limit":  filter.Limit,
@@ -172,46 +173,46 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	if err := h.service.Delete(r.Context(), id); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{"message": "Lohnzettel gelöscht"})
+	api.RespondJSON(w, http.StatusOK, map[string]string{"message": "Lohnzettel gelöscht"})
 }
 
 // Validate handles POST /api/v1/lohnzettel/{id}/validate
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.Validate(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		api.RespondError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // Preview handles GET /api/v1/lohnzettel/{id}/preview
 func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	preview, err := h.service.Preview(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		api.RespondError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
@@ -222,38 +223,38 @@ func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, preview)
+	api.RespondJSON(w, http.StatusOK, preview)
 }
 
 // GetSummary handles GET /api/v1/lohnzettel/{id}/summary
 func (h *Handler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	summary, err := h.service.GetSummary(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, err.Error())
+		api.RespondError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, summary)
+	api.RespondJSON(w, http.StatusOK, summary)
 }
 
 // Submit handles POST /api/v1/lohnzettel/{id}/send
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.Submit(r.Context(), id)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
@@ -261,7 +262,7 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 		}
 		// Return result even on error (contains ELDA error details)
 		if result != nil {
-			respondJSON(w, http.StatusBadGateway, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadGateway, map[string]interface{}{
 				"success":       false,
 				"error":         err.Error(),
 				"error_code":    result.ErrorCode,
@@ -269,35 +270,35 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // QueryStatus handles GET /api/v1/lohnzettel/{id}/status
 func (h *Handler) QueryStatus(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	status, err := h.service.QueryStatus(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, status)
+	api.RespondJSON(w, http.StatusOK, status)
 }
 
 // CreateBerichtigung handles POST /api/v1/lohnzettel/{id}/berichtigung
 func (h *Handler) CreateBerichtigung(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
@@ -305,38 +306,38 @@ func (h *Handler) CreateBerichtigung(w http.ResponseWriter, r *http.Request) {
 		L16Data elda.L16Data `json:"l16_data"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	correction, err := h.service.CreateBerichtigung(r.Context(), id, &req.L16Data)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, correction)
+	api.RespondJSON(w, http.StatusCreated, correction)
 }
 
 // SubmitBerichtigung handles POST /api/v1/lohnzettel/{id}/berichtigung/send
 func (h *Handler) SubmitBerichtigung(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	result, err := h.service.SubmitBerichtigung(r.Context(), id)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
 			return
 		}
 		if result != nil {
-			respondJSON(w, http.StatusBadGateway, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadGateway, map[string]interface{}{
 				"success":       false,
 				"error":         err.Error(),
 				"error_code":    result.ErrorCode,
@@ -344,52 +345,52 @@ func (h *Handler) SubmitBerichtigung(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // CreateBatch handles POST /api/v1/lohnzettel/batch
 func (h *Handler) CreateBatch(w http.ResponseWriter, r *http.Request) {
 	var req elda.LohnzettelBatchCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	batch, err := h.service.CreateBatch(r.Context(), &req)
 	if err != nil {
 		if ve, ok := err.(*ValidationError); ok {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":  ve.Message,
 				"errors": ve.Errors,
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, batch)
+	api.RespondJSON(w, http.StatusCreated, batch)
 }
 
 // GetBatch handles GET /api/v1/lohnzettel/batch/{id}
 func (h *Handler) GetBatch(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
 	batch, err := h.service.GetBatch(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "Batch nicht gefunden")
+		api.RespondError(w, http.StatusNotFound, "Batch nicht gefunden")
 		return
 	}
 
-	respondJSON(w, http.StatusOK, batch)
+	api.RespondJSON(w, http.StatusOK, batch)
 }
 
 // ListBatches handles GET /api/v1/lohnzettel/batches
@@ -430,11 +431,11 @@ func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
 
 	batches, err := h.service.ListBatches(r.Context(), filter)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"data":   batches,
 		"limit":  filter.Limit,
 		"offset": filter.Offset,
@@ -445,7 +446,7 @@ func (h *Handler) ListBatches(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SubmitBatch(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige ID")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige ID")
 		return
 	}
 
@@ -459,42 +460,42 @@ func (h *Handler) SubmitBatch(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.SubmitBatch(r.Context(), id, maxConcurrent)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // ImportCSV handles POST /api/v1/lohnzettel/import
 func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10 MB max
-		respondError(w, http.StatusBadRequest, "Fehler beim Parsen der Datei: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Fehler beim Parsen der Datei: "+err.Error())
 		return
 	}
 
 	// Get ELDA account ID
 	eldaAccountIDStr := r.FormValue("elda_account_id")
 	if eldaAccountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 	eldaAccountID, err := uuid.Parse(eldaAccountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
 		return
 	}
 
 	// Get year
 	yearStr := r.FormValue("year")
 	if yearStr == "" {
-		respondError(w, http.StatusBadRequest, "year erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "year erforderlich")
 		return
 	}
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültiges Jahr")
+		api.RespondError(w, http.StatusBadRequest, "Ungültiges Jahr")
 		return
 	}
 
@@ -507,7 +508,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	// Get file
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "CSV-Datei erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "CSV-Datei erforderlich")
 		return
 	}
 	defer file.Close()
@@ -515,18 +516,18 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	// Read file content
 	csvData, err := io.ReadAll(file)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Fehler beim Lesen der Datei")
+		api.RespondError(w, http.StatusInternalServerError, "Fehler beim Lesen der Datei")
 		return
 	}
 
 	// Import
 	result, err := h.service.ImportFromCSV(r.Context(), eldaAccountID, year, csvData, format)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // BulkCreate handles POST /api/v1/lohnzettel/bulk
@@ -535,23 +536,23 @@ func (h *Handler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 		Lohnzettel []*elda.LohnzettelCreateRequest `json:"lohnzettel"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
+		api.RespondError(w, http.StatusBadRequest, "Ungültige Anfrage: "+err.Error())
 		return
 	}
 
 	if len(req.Lohnzettel) == 0 {
-		respondError(w, http.StatusBadRequest, "Mindestens ein Lohnzettel erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "Mindestens ein Lohnzettel erforderlich")
 		return
 	}
 
 	if len(req.Lohnzettel) > 100 {
-		respondError(w, http.StatusBadRequest, "Maximal 100 Lohnzettel pro Anfrage")
+		api.RespondError(w, http.StatusBadRequest, "Maximal 100 Lohnzettel pro Anfrage")
 		return
 	}
 
 	results, err := h.service.BulkCreate(r.Context(), req.Lohnzettel)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -565,7 +566,7 @@ func (h *Handler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"total":   len(results),
 		"success": success,
 		"failed":  failed,
@@ -577,65 +578,54 @@ func (h *Handler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetDeadlineInfo(w http.ResponseWriter, r *http.Request) {
 	year, err := strconv.Atoi(chi.URLParam(r, "year"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültiges Jahr")
+		api.RespondError(w, http.StatusBadRequest, "Ungültiges Jahr")
 		return
 	}
 
 	info := h.service.GetDeadlineInfo(year)
-	respondJSON(w, http.StatusOK, info)
+	api.RespondJSON(w, http.StatusOK, info)
 }
 
 // GetDeadlineStatus handles GET /api/v1/lohnzettel/deadline-status
 func (h *Handler) GetDeadlineStatus(w http.ResponseWriter, r *http.Request) {
 	eldaAccountIDStr := r.URL.Query().Get("elda_account_id")
 	if eldaAccountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
+		api.RespondError(w, http.StatusBadRequest, "elda_account_id erforderlich")
 		return
 	}
 
 	eldaAccountID, err := uuid.Parse(eldaAccountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
+		api.RespondError(w, http.StatusBadRequest, "Ungültige elda_account_id")
 		return
 	}
 
 	status, err := h.service.GetDeadlineStatus(r.Context(), eldaAccountID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, status)
+	api.RespondJSON(w, http.StatusOK, status)
 }
 
 // GetStatistics handles GET /api/v1/lohnzettel/statistics/{year}
 func (h *Handler) GetStatistics(w http.ResponseWriter, r *http.Request) {
 	year, err := strconv.Atoi(chi.URLParam(r, "year"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Ungültiges Jahr")
+		api.RespondError(w, http.StatusBadRequest, "Ungültiges Jahr")
 		return
 	}
 
 	stats, err := h.service.GetStatistics(r.Context(), year)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	respondJSON(w, http.StatusOK, stats)
+	api.RespondJSON(w, http.StatusOK, stats)
 }
 
-// Helper functions
-
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string) {
-	respondJSON(w, status, map[string]string{"error": message})
-}
 
 // RegisterRoutes registers Lohnzettel routes with the router
 func RegisterRoutes(r chi.Router, service *Service) {

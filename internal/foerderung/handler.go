@@ -6,6 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"austrian-business-infrastructure/internal/api"
+	"austrian-business-infrastructure/internal/auth"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
@@ -72,25 +75,29 @@ type ListResponse struct {
 
 // Create handles POST /api/v1/foerderungen
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check admin role
+	// Security: Require admin role for creating Förderungen
+	if !auth.IsAdmin(r.Context()) {
+		api.RespondError(w, http.StatusForbidden, "admin role required")
+		return
+	}
 
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	// Validate required fields
 	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
+		api.RespondError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 	if req.Provider == "" {
-		writeError(w, http.StatusBadRequest, "provider is required")
+		api.RespondError(w, http.StatusBadRequest, "provider is required")
 		return
 	}
 	if req.Type == "" {
-		writeError(w, http.StatusBadRequest, "type is required")
+		api.RespondError(w, http.StatusBadRequest, "type is required")
 		return
 	}
 
@@ -140,7 +147,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.ApplicationDeadline != nil {
 		t, err := parseDate(*req.ApplicationDeadline)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid application_deadline format")
+			api.RespondError(w, http.StatusBadRequest, "invalid application_deadline format")
 			return
 		}
 		f.ApplicationDeadline = &t
@@ -148,7 +155,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.CallStart != nil {
 		t, err := parseDate(*req.CallStart)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid call_start format")
+			api.RespondError(w, http.StatusBadRequest, "invalid call_start format")
 			return
 		}
 		f.CallStart = &t
@@ -156,18 +163,18 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.CallEnd != nil {
 		t, err := parseDate(*req.CallEnd)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid call_end format")
+			api.RespondError(w, http.StatusBadRequest, "invalid call_end format")
 			return
 		}
 		f.CallEnd = &t
 	}
 
 	if err := h.repo.Create(r.Context(), f); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, f)
+	api.RespondJSON(w, http.StatusCreated, f)
 }
 
 // List handles GET /api/v1/foerderungen
@@ -200,11 +207,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	foerderungen, total, err := h.repo.List(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ListResponse{
+	api.RespondJSON(w, http.StatusOK, ListResponse{
 		Foerderungen: foerderungen,
 		Total:        total,
 		Limit:        filter.Limit,
@@ -217,40 +224,44 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung id")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung id")
 		return
 	}
 
 	f, err := h.repo.GetByID(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "foerderung not found")
+		api.RespondError(w, http.StatusNotFound, "foerderung not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, f)
+	api.RespondJSON(w, http.StatusOK, f)
 }
 
 // Update handles PUT /api/v1/foerderungen/{id}
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check admin role
+	// Security: Require admin role for updating Förderungen
+	if !auth.IsAdmin(r.Context()) {
+		api.RespondError(w, http.StatusForbidden, "admin role required")
+		return
+	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung id")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung id")
 		return
 	}
 
 	// Get existing
 	f, err := h.repo.GetByID(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "foerderung not found")
+		api.RespondError(w, http.StatusNotFound, "foerderung not found")
 		return
 	}
 
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -334,7 +345,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.ApplicationDeadline != nil {
 		t, err := parseDate(*req.ApplicationDeadline)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid application_deadline format")
+			api.RespondError(w, http.StatusBadRequest, "invalid application_deadline format")
 			return
 		}
 		f.ApplicationDeadline = &t
@@ -342,7 +353,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.CallStart != nil {
 		t, err := parseDate(*req.CallStart)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid call_start format")
+			api.RespondError(w, http.StatusBadRequest, "invalid call_start format")
 			return
 		}
 		f.CallStart = &t
@@ -350,33 +361,37 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.CallEnd != nil {
 		t, err := parseDate(*req.CallEnd)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid call_end format")
+			api.RespondError(w, http.StatusBadRequest, "invalid call_end format")
 			return
 		}
 		f.CallEnd = &t
 	}
 
 	if err := h.repo.Update(r.Context(), f); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, f)
+	api.RespondJSON(w, http.StatusOK, f)
 }
 
 // Delete handles DELETE /api/v1/foerderungen/{id}
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	// TODO: Check admin role
+	// Security: Require admin role for deleting Förderungen
+	if !auth.IsAdmin(r.Context()) {
+		api.RespondError(w, http.StatusForbidden, "admin role required")
+		return
+	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung id")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung id")
 		return
 	}
 
 	if err := h.repo.Delete(r.Context(), id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -387,11 +402,11 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.repo.GetStats(r.Context())
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, stats)
+	api.RespondJSON(w, http.StatusOK, stats)
 }
 
 // Helper functions
@@ -400,32 +415,23 @@ func parseDate(s string) (time.Time, error) {
 	return time.Parse("2006-01-02", s)
 }
 
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
-}
 
 // GetCombinations handles GET /api/v1/foerderungen/{id}/combinations
 func (h *Handler) GetCombinations(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung id")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung id")
 		return
 	}
 
 	analysis, err := h.combinationService.GetCombinablePrograms(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "foerderung not found")
+		api.RespondError(w, http.StatusNotFound, "foerderung not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, analysis)
+	api.RespondJSON(w, http.StatusOK, analysis)
 }
 
 // ValidateCombinationRequest is the request body for combination validation
@@ -438,29 +444,29 @@ type ValidateCombinationRequest struct {
 func (h *Handler) ValidateCombination(w http.ResponseWriter, r *http.Request) {
 	var req ValidateCombinationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	id1, err := uuid.Parse(req.FoerderungID1)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung_id_1")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung_id_1")
 		return
 	}
 
 	id2, err := uuid.Parse(req.FoerderungID2)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid foerderung_id_2")
+		api.RespondError(w, http.StatusBadRequest, "invalid foerderung_id_2")
 		return
 	}
 
 	validation, err := h.combinationService.ValidateCombination(r.Context(), id1, id2)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		api.RespondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, validation)
+	api.RespondJSON(w, http.StatusOK, validation)
 }
 
 // RegisterRoutes registers foerderung routes with chi router

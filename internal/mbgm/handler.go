@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"austrian-business-infrastructure/internal/api"
 	"austrian-business-infrastructure/internal/elda"
 )
 
@@ -50,7 +51,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var req elda.MBGMCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
@@ -58,17 +59,17 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var validationErr *ValidationError
 		if errors.As(err, &validationErr) {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":      "Validation failed",
 				"validation": validationErr.Result,
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "Failed to create mBGM", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to create mBGM", err)
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, mbgm)
+	api.RespondJSON(w, http.StatusCreated, mbgm)
 }
 
 // List handles GET /api/v1/mbgm
@@ -76,13 +77,13 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	accountIDStr := r.URL.Query().Get("account_id")
 	if accountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "account_id is required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "account_id is required", nil)
 		return
 	}
 
 	accountID, err := uuid.Parse(accountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid account_id", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid account_id", err)
 		return
 	}
 
@@ -109,11 +110,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	mbgms, err := h.service.List(r.Context(), accountID, filter)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to list mBGMs", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to list mBGMs", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"mbgms": mbgms,
 		"count": len(mbgms),
 	})
@@ -123,36 +124,36 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	mbgm, err := h.service.GetByID(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusNotFound, "mBGM not found", err)
+		api.RespondErrorWithDetails(w, http.StatusNotFound, "mBGM not found", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, mbgm)
+	api.RespondJSON(w, http.StatusOK, mbgm)
 }
 
 // PreviewXML handles GET /api/v1/mbgm/{id}/preview
 func (h *Handler) PreviewXML(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	dienstgeberNr := r.URL.Query().Get("dienstgeber_nr")
 	if dienstgeberNr == "" {
-		respondError(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
 		return
 	}
 
 	preview, err := h.service.PreviewXML(r.Context(), id, dienstgeberNr)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate preview", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to generate preview", err)
 		return
 	}
 
@@ -164,31 +165,31 @@ func (h *Handler) PreviewXML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondJSON(w, http.StatusOK, preview)
+	api.RespondJSON(w, http.StatusOK, preview)
 }
 
 // Validate handles POST /api/v1/mbgm/{id}/validate
 func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	result, err := h.service.Validate(r.Context(), id)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Validation failed", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Validation failed", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // Submit handles POST /api/v1/mbgm/{id}/send
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
@@ -196,12 +197,12 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 		DienstgeberNr string `json:"dienstgeber_nr"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
 	if req.DienstgeberNr == "" {
-		respondError(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
 		return
 	}
 
@@ -209,30 +210,30 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var validationErr *ValidationError
 		if errors.As(err, &validationErr) {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":      "Validation failed",
 				"validation": validationErr.Result,
 			})
 			return
 		}
-		respondJSON(w, http.StatusOK, result) // Return result even on ELDA error
+		api.RespondJSON(w, http.StatusOK, result) // Return result even on ELDA error
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // CreateCorrection handles POST /api/v1/mbgm/{id}/correction
 func (h *Handler) CreateCorrection(w http.ResponseWriter, r *http.Request) {
 	originalID, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	var req elda.MBGMCreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid request body", err)
 		return
 	}
 
@@ -240,29 +241,29 @@ func (h *Handler) CreateCorrection(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var validationErr *ValidationError
 		if errors.As(err, &validationErr) {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			api.RespondJSON(w, http.StatusBadRequest, map[string]interface{}{
 				"error":      "Validation failed",
 				"validation": validationErr.Result,
 			})
 			return
 		}
-		respondError(w, http.StatusInternalServerError, "Failed to create correction", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to create correction", err)
 		return
 	}
 
-	respondJSON(w, http.StatusCreated, mbgm)
+	api.RespondJSON(w, http.StatusCreated, mbgm)
 }
 
 // Delete handles DELETE /api/v1/mbgm/{id}
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	if err := h.service.Delete(r.Context(), id); err != nil {
-		respondError(w, http.StatusBadRequest, err.Error(), err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -273,34 +274,34 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	id, err := parseUUIDParam(chi.URLParam(r, "id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid mBGM ID", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid mBGM ID", err)
 		return
 	}
 
 	dienstgeberNr := r.URL.Query().Get("dienstgeber_nr")
 	if dienstgeberNr == "" {
-		respondError(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "dienstgeber_nr is required", nil)
 		return
 	}
 
 	summary, err := h.service.GetSummary(r.Context(), id, dienstgeberNr)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get summary", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to get summary", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, summary)
+	api.RespondJSON(w, http.StatusOK, summary)
 }
 
 // GetBeitragsgruppen handles GET /api/v1/beitragsgruppen
 func (h *Handler) GetBeitragsgruppen(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.service.GetBeitragsgruppen(r.Context())
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get Beitragsgruppen", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to get Beitragsgruppen", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"beitragsgruppen": groups,
 		"count":           len(groups),
 	})
@@ -310,14 +311,14 @@ func (h *Handler) GetBeitragsgruppen(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form (max 10MB)
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
-		respondError(w, http.StatusBadRequest, "Failed to parse form", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Failed to parse form", err)
 		return
 	}
 
 	// Get file
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "No file provided", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "No file provided", err)
 		return
 	}
 	defer file.Close()
@@ -325,33 +326,33 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	// Read file content
 	data, err := io.ReadAll(file)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to read file", err)
+		api.RespondErrorWithDetails(w, http.StatusInternalServerError, "Failed to read file", err)
 		return
 	}
 
 	// Get parameters
 	accountIDStr := r.FormValue("account_id")
 	if accountIDStr == "" {
-		respondError(w, http.StatusBadRequest, "account_id is required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "account_id is required", nil)
 		return
 	}
 
 	accountID, err := uuid.Parse(accountIDStr)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid account_id", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid account_id", err)
 		return
 	}
 
 	var year, month int
 	if yearStr := r.FormValue("year"); yearStr != "" {
 		if _, err := parseIntParam(yearStr, &year); err != nil {
-			respondError(w, http.StatusBadRequest, "Invalid year", err)
+			api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid year", err)
 			return
 		}
 	}
 	if monthStr := r.FormValue("month"); monthStr != "" {
 		if _, err := parseIntParam(monthStr, &month); err != nil {
-			respondError(w, http.StatusBadRequest, "Invalid month", err)
+			api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid month", err)
 			return
 		}
 	}
@@ -365,17 +366,17 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	importer := NewImporter(nil)
 	result, err := importer.Import(data, format, accountID, year, month)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Import failed", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Import failed", err)
 		return
 	}
 
-	respondJSON(w, http.StatusOK, result)
+	api.RespondJSON(w, http.StatusOK, result)
 }
 
 // GetImportFormats handles GET /api/v1/mbgm/import/formats
 func (h *Handler) GetImportFormats(w http.ResponseWriter, r *http.Request) {
 	formats := GetFormatSpecs()
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	api.RespondJSON(w, http.StatusOK, map[string]interface{}{
 		"formats": formats,
 	})
 }
@@ -403,22 +404,22 @@ func (h *Handler) GetDeadlineInfo(w http.ResponseWriter, r *http.Request) {
 	monthStr := r.URL.Query().Get("month")
 
 	if yearStr == "" || monthStr == "" {
-		respondError(w, http.StatusBadRequest, "year and month are required", nil)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "year and month are required", nil)
 		return
 	}
 
 	if _, err := parseIntParam(yearStr, &year); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid year", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid year", err)
 		return
 	}
 
 	if _, err := parseIntParam(monthStr, &month); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid month", err)
+		api.RespondErrorWithDetails(w, http.StatusBadRequest, "Invalid month", err)
 		return
 	}
 
 	info := h.service.GetDeadlineInfo(year, month)
-	respondJSON(w, http.StatusOK, info)
+	api.RespondJSON(w, http.StatusOK, info)
 }
 
 // Helper functions
@@ -436,18 +437,3 @@ func parseIntParam(s string, v *int) (bool, error) {
 	return true, nil
 }
 
-func respondJSON(w http.ResponseWriter, status int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func respondError(w http.ResponseWriter, status int, message string, err error) {
-	response := map[string]interface{}{
-		"error": message,
-	}
-	if err != nil {
-		response["details"] = err.Error()
-	}
-	respondJSON(w, status, response)
-}

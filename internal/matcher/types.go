@@ -1,6 +1,7 @@
 package matcher
 
 import (
+	"austrian-business-infrastructure/internal/constants"
 	"austrian-business-infrastructure/internal/foerderung"
 )
 
@@ -64,12 +65,12 @@ func (p *ProfileInput) DetermineIsKMU() bool {
 	// EU KMU Definition:
 	// - Less than 250 employees
 	// - Annual revenue < €50M OR Balance total < €43M
-	if p.EmployeesCount != nil && *p.EmployeesCount >= 250 {
+	if p.EmployeesCount != nil && *p.EmployeesCount >= constants.SMEEmployeeThreshold {
 		return false
 	}
 
-	if p.AnnualRevenue != nil && *p.AnnualRevenue >= 50000000 {
-		if p.BalanceTotal != nil && *p.BalanceTotal >= 43000000 {
+	if p.AnnualRevenue != nil && *p.AnnualRevenue >= constants.SMERevenueThreshold {
+		if p.BalanceTotal != nil && *p.BalanceTotal >= constants.SMEBalanceThreshold {
 			return false
 		}
 	}
@@ -109,17 +110,17 @@ func (p *ProfileInput) DetermineCompanySize() foerderung.CompanySize {
 	}
 
 	// kleinst: < 10 employees AND < €2M revenue
-	if employees < 10 && revenue < 2000000 {
+	if employees < constants.MicroEmployeeThreshold && revenue < constants.MicroRevenueThreshold {
 		return foerderung.SizeKleinst
 	}
 
 	// klein: < 50 employees AND < €10M revenue
-	if employees < 50 && revenue < 10000000 {
+	if employees < constants.SmallEmployeeThreshold && revenue < constants.SmallRevenueThreshold {
 		return foerderung.SizeKlein
 	}
 
 	// mittel: < 250 employees AND < €50M revenue
-	if employees < 250 && revenue < 50000000 {
+	if employees < constants.SMEEmployeeThreshold && revenue < constants.SMERevenueThreshold {
 		return foerderung.SizeMittel
 	}
 

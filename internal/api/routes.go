@@ -123,6 +123,7 @@ const (
 	ErrCodeInvalidCredentials  = "INVALID_CREDENTIALS"
 	ErrCodeTokenExpired        = "TOKEN_EXPIRED"
 	ErrCodeInvalidToken        = "INVALID_TOKEN"
+	ErrCodeServiceUnavailable  = "SERVICE_UNAVAILABLE"
 )
 
 // Standard error responses

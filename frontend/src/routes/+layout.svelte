@@ -9,10 +9,11 @@
 
 	let { children } = $props();
 
-	// Initialize theme on mount to ensure it's applied
-	let currentTheme = $state('system');
-	theme.subscribe((value) => {
-		currentTheme = value;
+	// Subscribe to theme store to ensure reactivity is maintained
+	// The theme store handles its own DOM updates internally
+	$effect(() => {
+		// Access the store to ensure subscription is active
+		const _ = $theme;
 	});
 
 	onMount(() => {

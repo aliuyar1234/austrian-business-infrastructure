@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"austrian-business-infrastructure/internal/api"
 	"austrian-business-infrastructure/internal/foerderung"
 )
 
@@ -99,25 +100,25 @@ type ListResponse struct {
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	var req CreateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	profileID, err := uuid.Parse(req.ProfileID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid profile ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid profile ID")
 		return
 	}
 
 	foerderungID, err := uuid.Parse(req.FoerderungID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid foerderung ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid foerderung ID")
 		return
 	}
 
@@ -135,18 +136,18 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	antrag, err := h.service.Create(r.Context(), input)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusCreated, toAntragResponse(antrag))
 }
 
 // List handles GET /api/v1/antraege
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -183,7 +184,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	antraege, total, err := h.service.List(r.Context(), filter)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to list applications")
+		api.RespondError(w, http.StatusInternalServerError, "Failed to list applications")
 		return
 	}
 
@@ -197,49 +198,49 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		resp.Antraege = append(resp.Antraege, toAntragResponse(a))
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	api.RespondJSON(w, http.StatusOK, resp)
 }
 
 // Get handles GET /api/v1/antraege/{id}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	antrag, err := h.service.GetByIDAndTenant(r.Context(), id, tenantID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Application not found")
+		api.RespondError(w, http.StatusNotFound, "Application not found")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusOK, toAntragResponse(antrag))
 }
 
 // Update handles PUT /api/v1/antraege/{id}
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	var req UpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -255,29 +256,29 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	antrag, err := h.service.Update(r.Context(), id, tenantID, input, userID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusOK, toAntragResponse(antrag))
 }
 
 // Delete handles DELETE /api/v1/antraege/{id}
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	if err := h.service.Delete(r.Context(), id, tenantID); err != nil {
-		writeError(w, http.StatusNotFound, "Application not found")
+		api.RespondError(w, http.StatusNotFound, "Application not found")
 		return
 	}
 
@@ -288,24 +289,24 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	var req StatusUpdateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	if req.Status == "" {
-		writeError(w, http.StatusBadRequest, "Status is required")
+		api.RespondError(w, http.StatusBadRequest, "Status is required")
 		return
 	}
 
@@ -313,47 +314,47 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	antrag, err := h.service.UpdateStatus(r.Context(), id, tenantID, req.Status, req.Description, userID)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusOK, toAntragResponse(antrag))
 }
 
 // GetStats handles GET /api/v1/antraege/stats
 func (h *Handler) GetStats(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	stats, err := h.service.GetStats(r.Context(), tenantID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to get stats")
+		api.RespondError(w, http.StatusInternalServerError, "Failed to get stats")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, stats)
+	api.RespondJSON(w, http.StatusOK, stats)
 }
 
 // AddAttachment handles POST /api/v1/antraege/{id}/attachments
 func (h *Handler) AddAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	var req AddAttachmentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		api.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -365,40 +366,40 @@ func (h *Handler) AddAttachment(w http.ResponseWriter, r *http.Request) {
 
 	antrag, err := h.service.AddAttachment(r.Context(), id, tenantID, attachment)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusOK, toAntragResponse(antrag))
 }
 
 // RemoveAttachment handles DELETE /api/v1/antraege/{id}/attachments/{name}
 func (h *Handler) RemoveAttachment(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := getTenantIDFromContext(r)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "Unauthorized")
+		api.RespondError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid application ID")
+		api.RespondError(w, http.StatusBadRequest, "Invalid application ID")
 		return
 	}
 
 	name := chi.URLParam(r, "name")
 	if name == "" {
-		writeError(w, http.StatusBadRequest, "Attachment name is required")
+		api.RespondError(w, http.StatusBadRequest, "Attachment name is required")
 		return
 	}
 
 	antrag, err := h.service.RemoveAttachment(r.Context(), id, tenantID, name)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		api.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toAntragResponse(antrag))
+	api.RespondJSON(w, http.StatusOK, toAntragResponse(antrag))
 }
 
 // Helper functions
@@ -467,12 +468,3 @@ func getUserIDFromContext(r *http.Request) *uuid.UUID {
 	return nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
-}
-
-func writeError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
-}

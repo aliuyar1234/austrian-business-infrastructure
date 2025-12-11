@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type SignatureStatus } from '$lib/utils/status';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 
-	type RequestStatus = 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled';
+	type RequestStatus = SignatureStatus;
 
 	interface Signer {
 		id: string;
@@ -91,26 +92,6 @@
 	);
 
 	let pendingCount = $derived(requests.filter(r => r.status === 'pending' || r.status === 'in_progress').length);
-
-	function getStatusLabel(status: RequestStatus): string {
-		switch (status) {
-			case 'pending': return 'Ausstehend';
-			case 'in_progress': return 'In Bearbeitung';
-			case 'completed': return 'Abgeschlossen';
-			case 'expired': return 'Abgelaufen';
-			case 'cancelled': return 'Storniert';
-		}
-	}
-
-	function getStatusVariant(status: RequestStatus): 'default' | 'warning' | 'info' | 'success' | 'error' {
-		switch (status) {
-			case 'pending': return 'warning';
-			case 'in_progress': return 'info';
-			case 'completed': return 'success';
-			case 'expired': return 'error';
-			case 'cancelled': return 'default';
-		}
-	}
 
 	function getSignerStatusIcon(status: Signer['status']): string {
 		switch (status) {
@@ -255,8 +236,8 @@
 								</div>
 							</td>
 							<td>
-								<Badge variant={getStatusVariant(req.status)} size="sm">
-									{getStatusLabel(req.status)}
+								<Badge variant={getStatusVariant(req.status, 'signature')} size="sm">
+									{getStatusLabel(req.status, 'signature')}
 								</Badge>
 							</td>
 							<td>

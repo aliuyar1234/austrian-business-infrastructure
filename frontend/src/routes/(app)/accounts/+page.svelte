@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDate, formatDateTime } from '$lib/utils';
+	import { getStatusLabel, getStatusVariant, type AccountStatus } from '$lib/utils/status';
 	import Card from '$lib/components/ui/Card.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -7,7 +8,6 @@
 
 	// Account types
 	type AccountType = 'finanzOnline' | 'elda' | 'firmenbuch';
-	type AccountStatus = 'active' | 'syncing' | 'error' | 'pending';
 
 	interface Account {
 		id: string;
@@ -78,24 +78,6 @@
 			return matchesSearch && matchesType && matchesStatus;
 		})
 	);
-
-	function getStatusVariant(status: AccountStatus): 'success' | 'warning' | 'error' | 'info' {
-		switch (status) {
-			case 'active': return 'success';
-			case 'syncing': return 'info';
-			case 'error': return 'error';
-			case 'pending': return 'warning';
-		}
-	}
-
-	function getStatusLabel(status: AccountStatus): string {
-		switch (status) {
-			case 'active': return 'Active';
-			case 'syncing': return 'Syncing...';
-			case 'error': return 'Error';
-			case 'pending': return 'Pending';
-		}
-	}
 
 	function getTypeLabel(type: AccountType): string {
 		switch (type) {
@@ -219,8 +201,8 @@
 								<a href="/accounts/{account.id}" class="text-lg font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)] transition-colors">
 									{account.name}
 								</a>
-								<Badge variant={getStatusVariant(account.status)} dot>
-									{getStatusLabel(account.status)}
+								<Badge variant={getStatusVariant(account.status, 'account')} dot>
+									{getStatusLabel(account.status, 'account')}
 								</Badge>
 							</div>
 							<div class="flex items-center gap-4 mt-1 text-sm text-[var(--color-ink-muted)]">

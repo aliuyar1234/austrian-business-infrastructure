@@ -37,6 +37,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/documents/{id}/content", h.GetContent)
 	mux.HandleFunc("GET /api/v1/documents/{id}/download-url", h.GetDownloadURL)
 	mux.HandleFunc("PUT /api/v1/documents/{id}/status", h.UpdateStatus)
+	mux.HandleFunc("POST /api/v1/documents/{id}/read", h.MarkAsRead)
 	mux.HandleFunc("POST /api/v1/documents/{id}/archive", h.Archive)
 	mux.HandleFunc("POST /api/v1/documents/archive", h.BulkArchive)
 	mux.HandleFunc("DELETE /api/v1/documents/{id}", h.Delete)
@@ -390,6 +391,35 @@ func (h *Handler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api.JSONResponse(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+// MarkAsRead marks a document as read (convenience endpoint for frontend)
+func (h *Handler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+		return
+	}
+
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		api.JSONError(w, http.StatusBadRequest, "invalid document ID", api.ErrCodeBadRequest)
+		return
+	}
+
+	if err := h.service.MarkAsRead(ctx, tenantID, id); err != nil {
+		if err == ErrDocumentNotFound {
+			api.JSONError(w, http.StatusNotFound, "document not found", api.ErrCodeNotFound)
+			return
+		}
+		api.JSONError(w, http.StatusInternalServerError, "failed to mark document as read", api.ErrCodeInternalError)
+		return
+	}
+
+	api.JSONResponse(w, http.StatusOK, map[string]string{"status": "read"})
 }
 
 // Archive archives a single document

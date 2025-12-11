@@ -100,12 +100,6 @@
 		return filtered.slice(0, 10);
 	});
 
-	function open() {
-		commandPalette.open();
-		query = '';
-		selectedIndex = 0;
-	}
-
 	function close() {
 		commandPalette.close();
 		query = '';
@@ -185,9 +179,6 @@
 	onDestroy(() => {
 		window.removeEventListener('keydown', handleGlobalKeyDown);
 	});
-
-	// Expose open function for external use
-	export { open };
 </script>
 
 {#if isOpen}

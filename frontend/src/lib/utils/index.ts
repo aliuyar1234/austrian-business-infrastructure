@@ -29,12 +29,29 @@ export function formatDateTime(date: Date | string): string {
 
 /**
  * Format currency in EUR
+ * @param amount - Amount in the currency's base unit (e.g., EUR, not cents)
+ * @param currency - Currency code (default: EUR)
+ * @param options - Additional Intl.NumberFormat options
  */
-export function formatCurrency(amount: number, currency = 'EUR'): string {
+export function formatCurrency(
+	amount: number,
+	currency = 'EUR',
+	options?: Partial<Intl.NumberFormatOptions>
+): string {
 	return new Intl.NumberFormat('de-AT', {
 		style: 'currency',
-		currency
-	}).format(amount / 100); // Amounts stored in cents
+		currency,
+		...options
+	}).format(amount);
+}
+
+/**
+ * Format currency from cents (for APIs that store amounts in cents)
+ * @param amountInCents - Amount in cents
+ * @param currency - Currency code (default: EUR)
+ */
+export function formatCurrencyFromCents(amountInCents: number, currency = 'EUR'): string {
+	return formatCurrency(amountInCents / 100, currency);
 }
 
 /**
